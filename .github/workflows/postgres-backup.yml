@@ -56,15 +56,16 @@ jobs:
 
           docker run --rm \
             -e BACKUP_DATABASE_URL="$backup_database_url" \
+            -e BACKUP_NAME="$backup_name" \
             -v "$PWD/$backup_dir:/backup" \
             postgres:18-bookworm \
-            pg_dump "$BACKUP_DATABASE_URL" \
-            --format=custom \
-            --compress=9 \
-            --blobs \
-            --no-owner \
-            --no-privileges \
-            --file="/backup/$backup_name"
+            bash -lc 'pg_dump "$BACKUP_DATABASE_URL" \
+              --format=custom \
+              --compress=9 \
+              --blobs \
+              --no-owner \
+              --no-privileges \
+              --file="/backup/$BACKUP_NAME"'
 
           sha256sum "$backup_file" > "$backup_file.sha256"
           {
