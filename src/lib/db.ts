@@ -316,6 +316,49 @@ export async function createContribution(input: {
   notes?: string;
 }) {
   await ensureSchema();
+  const contributorEmail = input.contributorEmail?.trim().toLowerCase() ?? '';
+
+  if (contributorEmail) {
+    const existing = await getPool().query<{ id: number }>(
+      `
+      SELECT id
+      FROM contributions
+      WHERE word_id = $1
+        AND language = $2
+        AND contributor_email = $3
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `,
+      [input.wordId, input.language, contributorEmail]
+    );
+
+    const existingId = existing.rows[0]?.id;
+    if (existingId) {
+      const updated = await getPool().query<{ id: number }>(
+        `
+        UPDATE contributions
+        SET translation = $2,
+            synonyms = $3,
+            contributor_name = $4,
+            notes = $5,
+            status = 'approved',
+            created_at = now()
+        WHERE id = $1
+        RETURNING id
+      `,
+        [
+          existingId,
+          input.translation.trim(),
+          input.synonyms?.trim() ?? '',
+          input.contributorName?.trim() ?? '',
+          input.notes?.trim() ?? '',
+        ]
+      );
+
+      return updated.rows[0].id;
+    }
+  }
+
   const result = await getPool().query<{ id: number }>(
     `
     INSERT INTO contributions (word_id, language, translation, synonyms, contributor_name, contributor_email, notes)
@@ -328,7 +371,7 @@ export async function createContribution(input: {
       input.translation.trim(),
       input.synonyms?.trim() ?? '',
       input.contributorName?.trim() ?? '',
-      input.contributorEmail?.trim().toLowerCase() ?? '',
+      contributorEmail,
       input.notes?.trim() ?? '',
     ]
   );
@@ -342,7 +385,16 @@ export async function getContributorStats(email: string) {
   if (!normalizedEmail) return { contributionCount: 0, points: 0 };
 
   const result = await getPool().query<{ total: string }>(
-    `SELECT COUNT(*) AS total FROM contributions WHERE contributor_email = $1 AND status = 'approved'`,
+    `
+    SELECT COUNT(*) AS total
+    FROM (
+      SELECT DISTINCT ON (word_id, language) status
+      FROM contributions
+      WHERE contributor_email = $1
+      ORDER BY word_id, language, created_at DESC, id DESC
+    ) latest_contributions
+    WHERE status = 'approved'
+  `,
     [normalizedEmail]
   );
   const contributionCount = Number(result.rows[0]?.total ?? 0);
