@@ -37,6 +37,7 @@ type CompareResponse = {
 };
 
 const PAGE_SIZE = 50;
+type CompareView = 'horizontal' | 'vertical';
 
 export function CompareWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
   const t = useUiText();
@@ -46,6 +47,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
   const [data, setData] = useState<CompareResponse>({ rows: [], total: 0, limit: PAGE_SIZE, offset: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [showContributors, setShowContributors] = useState(false);
+  const [viewMode, setViewMode] = useState<CompareView>('horizontal');
   const [message, setMessage] = useState('');
 
   const comparisonLanguages = useMemo(() => languages.filter((language) => language.id !== 'other'), [languages]);
@@ -165,25 +167,48 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
           <p className="text-sm font-medium text-[#5e6459]">
             {isLoading ? t.loadingTranslations : data.total === 0 ? t.noTranslatedWordsYet : `${offset + 1}-${pageEnd} ${t.of} ${data.total}`}
           </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              disabled={offset === 0}
-              aria-label={t.previousPage}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setOffset(offset + PAGE_SIZE)}
-              disabled={offset + PAGE_SIZE >= data.total}
-              aria-label={t.nextPage}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="inline-flex rounded-lg border border-[#d8d6c8] bg-[#fbfaf6] p-1" role="tablist" aria-label={t.comparison}>
+              {[
+                { id: 'horizontal' as const, label: t.wordsAsRows },
+                { id: 'vertical' as const, label: t.languagesAsRows },
+              ].map((view) => (
+                <button
+                  key={view.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === view.id}
+                  onClick={() => setViewMode(view.id)}
+                  className={`h-9 rounded-md px-3 text-sm font-semibold transition ${
+                    viewMode === view.id
+                      ? 'bg-[#295f4e] text-white shadow-sm'
+                      : 'text-[#596056] hover:bg-white hover:text-[#295f4e]'
+                  }`}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                disabled={offset === 0}
+                aria-label={t.previousPage}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+                disabled={offset + PAGE_SIZE >= data.total}
+                aria-label={t.nextPage}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -196,7 +221,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
             <p className="text-xl font-semibold text-[#20231f]">{t.noComparisonRows}</p>
             <p className="mt-2 text-[#62685d]">{t.savedTranslationsWillAppear}</p>
           </div>
-        ) : (
+        ) : viewMode === 'horizontal' ? (
           <div className="overflow-hidden rounded-xl border border-[#d8d6c8] bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1320px] border-collapse text-left">
@@ -236,6 +261,59 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 </tbody>
               </table>
             </div>
+          </div>
+        ) : (
+          <div className="grid gap-5">
+            {data.rows.map((word) => (
+              <article key={word.id} className="overflow-hidden rounded-xl border border-[#d8d6c8] bg-white shadow-sm">
+                <div className="grid border-b border-[#ebe9df] bg-[#fbfaf6] md:grid-cols-2">
+                  <div className="border-b border-[#ebe9df] px-5 py-4 md:border-b-0 md:border-r">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">{t.english}</p>
+                    <p className="mt-2 text-xl font-semibold leading-snug text-[#111611]">{word.english || '-'}</p>
+                    <p className="mt-2 text-sm font-medium text-[#7a7f73]">
+                      {word.contributionCount} {t.contributions}
+                    </p>
+                  </div>
+                  <div className="px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">{t.french}</p>
+                    <p className="mt-2 text-xl font-semibold leading-snug text-[#111611]">{word.french}</p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-[#ebe9df] bg-white">
+                        <th className="w-64 px-5 py-3 text-sm font-semibold text-[#111611]">{t.language}</th>
+                        <th className="px-5 py-3 text-sm font-semibold text-[#111611]">{t.translation}</th>
+                        <th className="w-80 px-5 py-3 text-sm font-semibold text-[#111611]">
+                          {showContributors ? t.contributor : t.notes}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comparisonLanguages.map((language) => {
+                        const contribution = latestContributionFor(word, language.id);
+                        return (
+                          <tr key={language.id} className="border-b border-[#ebe9df] last:border-b-0">
+                            <td className="bg-[#fbfaf6] px-5 py-4 align-top text-sm font-semibold text-[#295f4e]">
+                              {language.label}
+                            </td>
+                            <td className="px-5 py-4 align-top">{renderLanguageCell(word, language)}</td>
+                            <td className="px-5 py-4 align-top text-sm leading-relaxed text-[#62685d]">
+                              {language.id === 'nufi'
+                                ? t.nufiImportReference
+                                : showContributors
+                                  ? contribution?.contributorName || '-'
+                                  : contribution?.notes || '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </section>
