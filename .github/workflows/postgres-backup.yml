@@ -54,7 +54,7 @@ jobs:
 
           docker run --rm \
             -e DATABASE_URL \
-            -e PGSSLROOTCERT=/etc/ssl/certs/ca-certificates.crt \
+            -e PGSSLROOTCERT=system \
             -v "$PWD/$backup_dir:/backup" \
             postgres:18-bookworm \
             pg_dump "$DATABASE_URL" \
