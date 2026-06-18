@@ -281,5 +281,9 @@ function normalizeForKey(value) {
 
 function normalizeCell(value) {
   if (value === null || value === undefined) return '';
-  return String(value).replace(/\s+/g, ' ').trim();
+  return stripTerminalPunctuation(String(value).replace(/\s+/g, ' ').trim());
+}
+
+function stripTerminalPunctuation(value) {
+  return value.replace(/[\s.;,:؛،]+$/u, '').trim();
 }
