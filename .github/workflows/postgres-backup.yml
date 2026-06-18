@@ -1,0 +1,82 @@
+name: Backup PostgreSQL database
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AZURE_WEBAPP_NAME: bamileke-collab-dictionary
+  AZURE_RESOURCE_GROUP: african-online-dictionaries_group
+  BACKUP_RETENTION_DAYS: 30
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Read database URL from Azure App Service
+        shell: bash
+        run: |
+          set -euo pipefail
+          database_url="$(az webapp config appsettings list \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --query "[?name=='DATABASE_URL'].value | [0]" \
+            -o tsv)"
+
+          if [ -z "$database_url" ]; then
+            echo "DATABASE_URL app setting was not found." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::$database_url"
+          echo "DATABASE_URL=$database_url" >> "$GITHUB_ENV"
+
+      - name: Install PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create pg_dump backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
+          backup_dir="postgres-backups"
+          backup_file="$backup_dir/bamileke-collab-dictionary-$timestamp.dump"
+          mkdir -p "$backup_dir"
+
+          pg_dump "$DATABASE_URL" \
+            --format=custom \
+            --compress=9 \
+            --blobs \
+            --no-owner \
+            --no-privileges \
+            --file="$backup_file"
+
+          sha256sum "$backup_file" > "$backup_file.sha256"
+          {
+            echo "created_at_utc=$timestamp"
+            echo "database=neondb"
+            echo "format=pg_dump_custom"
+            echo "restore_command=pg_restore --clean --if-exists --no-owner --no-privileges --dbname <DATABASE_URL> $(basename "$backup_file")"
+          } > "$backup_dir/README.txt"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-backup-${{ github.run_id }}
+          path: postgres-backups/
+          retention-days: ${{ env.BACKUP_RETENTION_DAYS }}
+          if-no-files-found: error
