@@ -41,31 +41,29 @@ jobs:
           echo "::add-mask::$database_url"
           echo "DATABASE_URL=$database_url" >> "$GITHUB_ENV"
 
-      - name: Install PostgreSQL client
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
       - name: Create pg_dump backup
         shell: bash
         run: |
           set -euo pipefail
-          export PGSSLROOTCERT=/etc/ssl/certs/ca-certificates.crt
 
           timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
           backup_dir="postgres-backups"
-          backup_file="$backup_dir/bamileke-collab-dictionary-$timestamp.dump"
+          backup_name="bamileke-collab-dictionary-$timestamp.dump"
+          backup_file="$backup_dir/$backup_name"
           mkdir -p "$backup_dir"
 
-          pg_dump "$DATABASE_URL" \
+          docker run --rm \
+            -e DATABASE_URL \
+            -e PGSSLROOTCERT=/etc/ssl/certs/ca-certificates.crt \
+            -v "$PWD/$backup_dir:/backup" \
+            postgres:18-bookworm \
+            pg_dump "$DATABASE_URL" \
             --format=custom \
             --compress=9 \
             --blobs \
             --no-owner \
             --no-privileges \
-            --file="$backup_file"
+            --file="/backup/$backup_name"
 
           sha256sum "$backup_file" > "$backup_file.sha256"
           {
