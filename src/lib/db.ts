@@ -342,7 +342,7 @@ export async function getContributorStats(email: string) {
   if (!normalizedEmail) return { contributionCount: 0, points: 0 };
 
   const result = await getPool().query<{ total: string }>(
-    `SELECT COUNT(*) AS total FROM contributions WHERE contributor_email = $1`,
+    `SELECT COUNT(*) AS total FROM contributions WHERE contributor_email = $1 AND status = 'approved'`,
     [normalizedEmail]
   );
   const contributionCount = Number(result.rows[0]?.total ?? 0);

@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Languages, LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
+import { Ban, ChevronLeft, ChevronRight, Languages, LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
 import { LANGUAGES } from '@/lib/languages';
 
 type AdminWord = {
@@ -153,11 +153,27 @@ export function AdminWorkspace() {
     });
     if (!response.ok) {
       setMessage('Unable to save entry.');
-      return;
+      return false;
     }
     const payload = (await response.json()) as { contributionId: number };
     updateLocal(row.wordId, { contributionId: payload.contributionId, language });
     setMessage('Entry saved.');
+    return true;
+  }
+
+  async function discard(row: AdminWord) {
+    if (!row.contributionId) {
+      setMessage('There is no translation to discard for this word.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Discard ${language} translation for "${row.french}"? This will remove its contributor points.`);
+    if (!confirmed) return;
+
+    const rejectedRow = { ...row, status: 'rejected' as const };
+    updateLocal(row.wordId, { status: 'rejected' });
+    const saved = await save(rejectedRow);
+    if (saved) setMessage('Entry discarded. Contributor points were reduced.');
   }
 
   async function remove(row: AdminWord) {
@@ -519,6 +535,15 @@ export function AdminWorkspace() {
                   >
                     <Save className="h-4 w-4" />
                     {selectedWord.contributionId ? 'Update translation' : 'Create translation'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => discard(selectedWord)}
+                    disabled={!selectedWord.contributionId || selectedWord.status === 'rejected'}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c97962] bg-white px-4 font-semibold text-[#9b3d2f] disabled:opacity-40"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Discard
                   </button>
                   <button
                     type="button"
