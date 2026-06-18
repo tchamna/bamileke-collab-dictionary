@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   adminAuthConfigured,
+  adminGoogleAuthConfigured,
   clearAdminSession,
   createAdminSession,
   getAdminSession,
@@ -15,8 +16,11 @@ const loginSchema = z.object({
 
 export async function GET() {
   const session = await getAdminSession();
+  const passwordConfigured = adminAuthConfigured();
+  const googleConfigured = adminGoogleAuthConfigured();
   return NextResponse.json({
-    configured: adminAuthConfigured(),
+    configured: passwordConfigured || googleConfigured,
+    googleConfigured,
     authenticated: Boolean(session),
     email: session?.email ?? '',
   });

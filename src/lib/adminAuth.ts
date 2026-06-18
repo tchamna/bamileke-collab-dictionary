@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 
 const COOKIE_NAME = 'collab_admin';
+export const ADMIN_OAUTH_STATE_COOKIE = 'collab_admin_oauth_state';
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
 type AdminSession = {
@@ -42,6 +43,10 @@ function safeEqual(a: string, b: string) {
 
 export function adminAuthConfigured() {
   return Boolean(getAdminPassword() && getSessionSecret() && getAdminEmails().length);
+}
+
+export function adminGoogleAuthConfigured() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && getSessionSecret() && getAdminEmails().length);
 }
 
 export function isAllowedAdminEmail(email: string) {

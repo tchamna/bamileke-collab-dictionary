@@ -21,3 +21,10 @@ Admin access is controlled by environment variables:
 - `ADMIN_EMAILS`: comma-separated list of emails allowed to use `/admin`
 - `ADMIN_PASSWORD`: temporary admin login password
 - `ADMIN_SESSION_SECRET`: long random value used to sign admin sessions
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: Google OAuth credentials for admin sign-in
+
+For production Google OAuth, add this authorized redirect URI in Google Cloud:
+
+```text
+https://bamileke-collab-dictionary.azurewebsites.net/api/admin/oauth/google/callback
+```

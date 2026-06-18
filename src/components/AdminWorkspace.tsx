@@ -28,6 +28,7 @@ const PAGE_SIZE = 50;
 
 export function AdminWorkspace() {
   const [configured, setConfigured] = useState(true);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [adminEmail, setAdminEmail] = useState('');
   const [email, setEmail] = useState('');
@@ -42,12 +43,20 @@ export function AdminWorkspace() {
   useEffect(() => {
     fetch('/api/admin/session', { cache: 'no-store' })
       .then((response) => response.json())
-      .then((session: { configured: boolean; authenticated: boolean; email?: string }) => {
+      .then((session: { configured: boolean; googleConfigured?: boolean; authenticated: boolean; email?: string }) => {
         setConfigured(session.configured);
+        setGoogleConfigured(Boolean(session.googleConfigured));
         setAuthenticated(session.authenticated);
         setAdminEmail(session.email || '');
       })
       .catch(() => setConfigured(false));
+
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    if (error === 'not_admin') setMessage('This Google account is not allowed to administer the dictionary.');
+    if (error === 'google_not_configured') setMessage('Google sign-in is not configured.');
+    if (error === 'invalid_oauth_state') setMessage('Google sign-in expired. Try again.');
+    if (error === 'google_token_failed' || error === 'google_profile_failed') setMessage('Google sign-in failed. Try again.');
   }, []);
 
   useEffect(() => {
@@ -152,6 +161,21 @@ export function AdminWorkspace() {
             <Shield className="h-6 w-6 text-[#295f4e]" />
             <h1 className="text-2xl font-semibold">Admin login</h1>
           </div>
+          {googleConfigured ? (
+            <a
+              href="/api/admin/oauth/google/start"
+              className="mt-6 flex h-12 w-full items-center justify-center rounded-md border border-[#b8bcad] bg-white px-4 text-base font-semibold text-[#20231f] hover:bg-[#fbfaf6]"
+            >
+              Sign in with Google
+            </a>
+          ) : null}
+          {googleConfigured ? (
+            <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#7a7f73]">
+              <span className="h-px flex-1 bg-[#d8d6c8]" />
+              Password fallback
+              <span className="h-px flex-1 bg-[#d8d6c8]" />
+            </div>
+          ) : null}
           <label className="mt-6 grid gap-2 text-sm font-semibold text-[#3f443c]">
             Email
             <input
