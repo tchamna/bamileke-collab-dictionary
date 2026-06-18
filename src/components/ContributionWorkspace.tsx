@@ -67,6 +67,15 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     return () => controller.abort();
   }, [language, activeQuery, offset, t.unableToLoadWords]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setOffset(0);
+      setActiveQuery(query.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
   const selectedWord = useMemo(
     () => data.rows.find((word) => word.id === selectedWordId) ?? data.rows[0] ?? null,
     [data.rows, selectedWordId]

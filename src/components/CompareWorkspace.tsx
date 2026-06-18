@@ -71,6 +71,15 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     return () => controller.abort();
   }, [activeQuery, offset, t.unableToLoadComparison]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setOffset(0);
+      setActiveQuery(query.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
   function search(event: FormEvent) {
     event.preventDefault();
     setOffset(0);

@@ -69,6 +69,15 @@ export function AdminWorkspace() {
     loadWords();
   }, [authenticated, activeQuery, offset, language]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setOffset(0);
+      setActiveQuery(query.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
   async function login(event: FormEvent) {
     event.preventDefault();
     setMessage('');
