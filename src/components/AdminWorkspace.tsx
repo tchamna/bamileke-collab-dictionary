@@ -164,8 +164,26 @@ export function AdminWorkspace() {
           {googleConfigured ? (
             <a
               href="/api/admin/oauth/google/start"
-              className="mt-6 flex h-12 w-full items-center justify-center rounded-md border border-[#b8bcad] bg-white px-4 text-base font-semibold text-[#20231f] hover:bg-[#fbfaf6]"
+              className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-md border border-[#b8bcad] bg-white px-4 text-base font-semibold text-[#20231f] hover:bg-[#fbfaf6]"
             >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+                <path
+                  fill="#4285F4"
+                  d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9c-.3 1.4-1 2.5-2.1 3.2v2.7h3.4c2-1.8 3.4-4.5 3.4-7.9z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c3 0 5.5-1 7.3-2.8l-3.4-2.7c-1 .6-2.2 1-3.8 1-2.9 0-5.4-2-6.2-4.7H2.3v2.8C4.1 20.4 7.8 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.8 13.8c-.2-.6-.4-1.2-.4-1.8s.1-1.2.4-1.8V7.4H2.3C1.5 8.8 1 10.4 1 12s.5 3.2 1.3 4.6l3.5-2.8z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.5c1.6 0 3.1.6 4.2 1.7l3.1-3.1C17.5 2.2 15 1 12 1 7.8 1 4.1 3.6 2.3 7.4l3.5 2.8C6.6 7.5 9.1 5.5 12 5.5z"
+                />
+              </svg>
               Sign in with Google
             </a>
           ) : null}
