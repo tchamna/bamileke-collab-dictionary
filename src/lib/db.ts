@@ -30,6 +30,21 @@ export type WordComparisonContribution = {
   created_at: Date;
 };
 
+export type AdminContributionRow = {
+  id: number;
+  word_id: number;
+  french: string;
+  english: string;
+  nufi_json: string[];
+  language: string;
+  translation: string;
+  synonyms: string;
+  contributor_name: string;
+  notes: string;
+  status: string;
+  created_at: Date;
+};
+
 export type ComparisonWordRow = {
   id: number;
   french: string;
@@ -275,4 +290,98 @@ export async function createContribution(input: {
   );
 
   return result.rows[0].id;
+}
+
+export async function listAdminContributions(input: { q?: string; offset?: number; limit?: number }) {
+  await ensureSchema();
+  const limit = normalizeLimit(input.limit, 50);
+  const offset = normalizeOffset(input.offset);
+  const q = input.q?.trim() ?? '';
+  const searchPattern = q ? `%${q}%` : null;
+  const where = searchPattern
+    ? `WHERE w.search_text ILIKE $1
+        OR c.language ILIKE $1
+        OR c.translation ILIKE $1
+        OR c.synonyms ILIKE $1
+        OR c.contributor_name ILIKE $1`
+    : '';
+  const params = searchPattern ? [searchPattern, limit, offset] : [limit, offset];
+  const limitParam = searchPattern ? '$2' : '$1';
+  const offsetParam = searchPattern ? '$3' : '$2';
+
+  const countResult = await getPool().query<{ total: string }>(
+    `
+    SELECT COUNT(*) AS total
+    FROM contributions c
+    INNER JOIN predefined_words w ON w.id = c.word_id
+    ${where}
+  `,
+    searchPattern ? [searchPattern] : []
+  );
+  const rowsResult = await getPool().query<AdminContributionRow>(
+    `
+    SELECT
+      c.id,
+      c.word_id,
+      w.french,
+      w.english,
+      w.nufi_json,
+      c.language,
+      c.translation,
+      c.synonyms,
+      c.contributor_name,
+      c.notes,
+      c.status,
+      c.created_at
+    FROM contributions c
+    INNER JOIN predefined_words w ON w.id = c.word_id
+    ${where}
+    ORDER BY c.created_at DESC, c.id DESC
+    LIMIT ${limitParam} OFFSET ${offsetParam}
+  `,
+    params
+  );
+
+  return { rows: rowsResult.rows, total: Number(countResult.rows[0]?.total ?? 0), limit, offset };
+}
+
+export async function updateAdminContribution(input: {
+  id: number;
+  language: string;
+  translation: string;
+  synonyms: string;
+  contributorName: string;
+  notes: string;
+  status: string;
+}) {
+  await ensureSchema();
+  const result = await getPool().query<{ id: number }>(
+    `
+    UPDATE contributions
+    SET language = $2,
+        translation = $3,
+        synonyms = $4,
+        contributor_name = $5,
+        notes = $6,
+        status = $7
+    WHERE id = $1
+    RETURNING id
+  `,
+    [
+      input.id,
+      input.language.trim(),
+      input.translation.trim(),
+      input.synonyms.trim(),
+      input.contributorName.trim(),
+      input.notes.trim(),
+      input.status.trim(),
+    ]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function deleteAdminContribution(id: number) {
+  await ensureSchema();
+  const result = await getPool().query(`DELETE FROM contributions WHERE id = $1`, [id]);
+  return (result.rowCount ?? 0) > 0;
 }
