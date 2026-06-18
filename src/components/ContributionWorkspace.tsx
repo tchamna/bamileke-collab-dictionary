@@ -27,6 +27,7 @@ type ApiResponse = {
 };
 
 const PAGE_SIZE = 18;
+const CONTRIBUTOR_NAME_STORAGE_KEY = 'bamilekeContributorName';
 
 export function ContributionWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
   const t = useUiText();
@@ -75,6 +76,20 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
 
     return () => window.clearTimeout(timeout);
   }, [query]);
+
+  useEffect(() => {
+    const storedName = window.sessionStorage.getItem(CONTRIBUTOR_NAME_STORAGE_KEY);
+    if (storedName) setContributorName(storedName);
+  }, []);
+
+  useEffect(() => {
+    const trimmedName = contributorName.trim();
+    if (trimmedName) {
+      window.sessionStorage.setItem(CONTRIBUTOR_NAME_STORAGE_KEY, trimmedName);
+    } else {
+      window.sessionStorage.removeItem(CONTRIBUTOR_NAME_STORAGE_KEY);
+    }
+  }, [contributorName]);
 
   const selectedWord = useMemo(
     () => data.rows.find((word) => word.id === selectedWordId) ?? data.rows[0] ?? null,
@@ -335,6 +350,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                       className="h-12 rounded-lg border border-[#c4bba8] px-4 text-base outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10"
                       placeholder={t.optional}
                     />
+                    <span className="text-sm font-medium text-[#62685d]">{t.contributorNameSessionHint}</span>
                   </label>
                   <label className="grid gap-2">
                     <span className="text-base font-semibold text-[#30352f]">{t.notes}</span>
