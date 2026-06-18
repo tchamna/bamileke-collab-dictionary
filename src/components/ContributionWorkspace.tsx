@@ -378,7 +378,9 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                 <div className="grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.frenchWord}</p>
-                    <p className="mt-2 text-5xl font-semibold text-[#18221d]">{selectedWord.french}</p>
+                    <p className="mt-2 max-w-3xl text-3xl font-semibold leading-tight text-[#18221d] sm:text-4xl">
+                      {selectedWord.french}
+                    </p>
                     {selectedWord.english ? <p className="mt-3 text-base font-medium text-[#62685d]">{t.english}: {selectedWord.english}</p> : null}
                   </div>
                   <div className="rounded-xl border border-[#e2dccc] bg-white p-4">
