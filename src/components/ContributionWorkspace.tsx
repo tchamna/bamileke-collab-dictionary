@@ -65,6 +65,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showExistingTranslationDialog, setShowExistingTranslationDialog] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -170,8 +171,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     setActiveQuery(query.trim());
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  async function saveContribution() {
     if (!selectedWord) return;
     setIsSaving(true);
     setMessage('');
@@ -212,6 +212,23 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
           : word
       ),
     }));
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedWord) return;
+
+    const currentTranslation = selectedWord.latestTranslation?.trim() ?? '';
+    const currentSynonyms = selectedWord.latestSynonyms?.trim() ?? '';
+    const nextTranslation = translation.trim();
+    const nextSynonyms = synonyms.trim();
+
+    if (currentTranslation && (currentTranslation !== nextTranslation || currentSynonyms !== nextSynonyms)) {
+      setShowExistingTranslationDialog(true);
+      return;
+    }
+
+    void saveContribution();
   }
 
   return (
@@ -493,6 +510,56 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
           )}
         </form>
       </section>
+      {showExistingTranslationDialog && selectedWord ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#111713]/45 px-4 py-6 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="existing-translation-title"
+            className="w-full max-w-xl overflow-hidden rounded-xl border border-[#d8d0bd] bg-[#fbfaf6] shadow-2xl"
+          >
+            <div className="border-b border-[#e2dccc] bg-white px-5 py-4">
+              <p id="existing-translation-title" className="text-xl font-semibold text-[#18221d]">
+                {t.existingTranslationTitle}
+              </p>
+              <p className="mt-2 text-sm font-medium leading-6 text-[#62685d]">
+                {t.existingTranslationMessage(selectedLanguageLabel)}
+              </p>
+            </div>
+            <div className="grid gap-3 px-5 py-4">
+              <div className="rounded-lg border border-[#e2dccc] bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.currentTranslation}</p>
+                <p className="mt-2 text-lg font-semibold text-[#18221d]">{selectedWord.latestTranslation}</p>
+                {selectedWord.latestSynonyms ? <p className="mt-1 text-sm font-medium text-[#62685d]">{selectedWord.latestSynonyms}</p> : null}
+              </div>
+              <div className="rounded-lg border border-[#2f6b58]/35 bg-[#eef6f0] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2f6b58]">{t.newTranslation}</p>
+                <p className="mt-2 text-lg font-semibold text-[#18221d]">{translation}</p>
+                {synonyms ? <p className="mt-1 text-sm font-medium text-[#62685d]">{synonyms}</p> : null}
+              </div>
+            </div>
+            <div className="flex flex-col-reverse gap-3 border-t border-[#e2dccc] bg-white px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowExistingTranslationDialog(false)}
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-[#c9c0ad] bg-white px-5 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
+              >
+                {t.keepCurrentTranslation}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExistingTranslationDialog(false);
+                  void saveContribution();
+                }}
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-[#2f6b58] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#255645]"
+              >
+                {t.confirmTranslationChange}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
