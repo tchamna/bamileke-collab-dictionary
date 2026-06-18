@@ -525,9 +525,18 @@ export function AdminWorkspace() {
                 </label>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-[#e3e3da] pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="min-h-6 text-sm font-semibold text-[#295f4e]">{message}</p>
-                <div className="flex gap-2">
+              <div className="grid gap-4 border-t border-[#e3e3da] pt-4">
+                <div className="rounded-md border border-[#ded8c8] bg-[#fbfaf6] p-3 text-sm font-medium leading-6 text-[#555f55]">
+                  <p>
+                    <span className="font-semibold text-[#7a3d2f]">Discard</span> keeps the entry for review, marks it rejected, hides it from public approved results, and removes contributor points.
+                  </p>
+                  <p className="mt-1">
+                    <span className="font-semibold text-[#7a3d2f]">Delete</span> permanently removes the entry. Use it for spam, test data, or mistakes that should not be kept.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="min-h-6 text-sm font-semibold text-[#295f4e]">{message}</p>
+                  <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => save(selectedWord)}
@@ -554,6 +563,7 @@ export function AdminWorkspace() {
                     <Trash2 className="h-4 w-4" />
                     Delete
                   </button>
+                  </div>
                 </div>
               </div>
             </div>
