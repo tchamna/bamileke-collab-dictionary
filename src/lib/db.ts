@@ -401,6 +401,50 @@ export async function getContributorStats(email: string) {
   return { contributionCount, points: contributionCount * 50 };
 }
 
+export type ContributorContributionExportRow = {
+  created_at: Date;
+  status: string;
+  language: string;
+  french: string;
+  english: string;
+  nufi_json: string[];
+  translation: string;
+  synonyms: string;
+  notes: string;
+  contributor_name: string;
+  contributor_email: string;
+};
+
+export async function listContributorContributionsForExport(email: string) {
+  await ensureSchema();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return [];
+
+  const result = await getPool().query<ContributorContributionExportRow>(
+    `
+    SELECT
+      c.created_at,
+      c.status,
+      c.language,
+      w.french,
+      w.english,
+      w.nufi_json,
+      c.translation,
+      c.synonyms,
+      c.notes,
+      c.contributor_name,
+      c.contributor_email
+    FROM contributions c
+    INNER JOIN predefined_words w ON w.id = c.word_id
+    WHERE c.contributor_email = $1
+    ORDER BY c.created_at DESC, c.id DESC
+  `,
+    [normalizedEmail]
+  );
+
+  return result.rows;
+}
+
 export async function listAdminContributions(input: { q?: string; offset?: number; limit?: number }) {
   await ensureSchema();
   const limit = normalizeLimit(input.limit, 50);

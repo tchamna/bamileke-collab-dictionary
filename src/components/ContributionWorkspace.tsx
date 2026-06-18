@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Award, ChevronLeft, ChevronRight, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Sparkles } from 'lucide-react';
+import { Award, ChevronLeft, ChevronRight, Download, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Sparkles } from 'lucide-react';
 import { useUiText } from '@/lib/uiLocale';
 
 type LanguageOption = {
@@ -156,6 +156,10 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const selectedLanguageLabel = languages.find((item) => item.id === language)?.label ?? language;
   const pageEnd = Math.min(offset + data.rows.length, data.total);
   const completedOnPage = data.rows.filter((word) => word.latestTranslation).length;
+  const normalizedContributorEmail = contributorEmail.trim().toLowerCase();
+  const contributorExportHref = normalizedContributorEmail.includes('@')
+    ? `/api/contributor/contributions/export?email=${encodeURIComponent(normalizedContributorEmail)}`
+    : '';
 
   function selectWord(word: WordItem) {
     setSelectedWordId(word.id);
@@ -447,6 +451,24 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                         <p className="text-sm font-medium text-[#62685d]">
                           {t.contributionPoints(contributorStats.contributionCount, contributorStats.points)}
                         </p>
+                        {contributorExportHref ? (
+                          <a
+                            href={contributorExportHref}
+                            className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
+                          >
+                            <Download className="h-4 w-4" />
+                            {t.downloadMyContributions}
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#d8d0bd] bg-[#f3efe6] px-4 text-sm font-semibold text-[#8a8d82]"
+                          >
+                            <Download className="h-4 w-4" />
+                            {t.downloadMyContributions}
+                          </button>
+                        )}
                       </div>
                       {isContributorSignedIn ? (
                         <button
