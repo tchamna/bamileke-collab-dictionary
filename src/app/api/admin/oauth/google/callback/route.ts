@@ -23,7 +23,7 @@ function callbackUrl(request: NextRequest) {
 }
 
 function redirectToAdmin(request: NextRequest, error?: string) {
-  const url = new URL('/admin', request.url);
+  const url = new URL(publicUrl(request, '/admin'));
   if (error) url.searchParams.set('error', error);
   return NextResponse.redirect(url);
 }
