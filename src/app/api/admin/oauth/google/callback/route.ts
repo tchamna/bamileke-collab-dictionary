@@ -6,6 +6,7 @@ import {
   createAdminSession,
   isAllowedAdminEmail,
 } from '@/lib/adminAuth';
+import { publicUrl } from '@/lib/publicUrl';
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -18,7 +19,7 @@ type GoogleUserInfo = {
 };
 
 function callbackUrl(request: NextRequest) {
-  return new URL('/api/admin/oauth/google/callback', request.url).toString();
+  return publicUrl(request, '/api/admin/oauth/google/callback');
 }
 
 function redirectToAdmin(request: NextRequest, error?: string) {

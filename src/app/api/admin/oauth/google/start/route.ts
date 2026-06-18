@@ -2,9 +2,10 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_OAUTH_STATE_COOKIE, adminGoogleAuthConfigured } from '@/lib/adminAuth';
+import { publicUrl } from '@/lib/publicUrl';
 
 function callbackUrl(request: NextRequest) {
-  return new URL('/api/admin/oauth/google/callback', request.url).toString();
+  return publicUrl(request, '/api/admin/oauth/google/callback');
 }
 
 export async function GET(request: NextRequest) {

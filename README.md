@@ -22,6 +22,7 @@ Admin access is controlled by environment variables:
 - `ADMIN_PASSWORD`: temporary admin login password
 - `ADMIN_SESSION_SECRET`: long random value used to sign admin sessions
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: Google OAuth credentials for admin sign-in
+- `ADMIN_APP_URL`: public production origin, for example `https://bamileke-collab-dictionary.azurewebsites.net`
 
 For production Google OAuth, add this authorized redirect URI in Google Cloud:
 
