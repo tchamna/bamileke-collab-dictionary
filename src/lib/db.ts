@@ -26,6 +26,7 @@ export type WordComparisonContribution = {
   translation: string;
   synonyms: string;
   contributor_name: string;
+  contributor_email: string;
   notes: string;
   created_at: Date;
 };
@@ -40,6 +41,7 @@ export type AdminContributionRow = {
   translation: string;
   synonyms: string;
   contributor_name: string;
+  contributor_email: string;
   notes: string;
   status: string;
   created_at: Date;
@@ -55,6 +57,7 @@ export type AdminWordRow = {
   translation: string | null;
   synonyms: string | null;
   contributor_name: string | null;
+  contributor_email: string | null;
   notes: string | null;
   status: string | null;
   created_at: Date | null;
@@ -115,10 +118,13 @@ export async function ensureSchema() {
         translation      TEXT NOT NULL,
         synonyms         TEXT NOT NULL DEFAULT '',
         contributor_name TEXT NOT NULL DEFAULT '',
+        contributor_email TEXT NOT NULL DEFAULT '',
         notes            TEXT NOT NULL DEFAULT '',
         status           TEXT NOT NULL DEFAULT 'approved',
         created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+
+      ALTER TABLE contributions ADD COLUMN IF NOT EXISTS contributor_email TEXT NOT NULL DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS admin_users (
         email              TEXT PRIMARY KEY,
@@ -142,6 +148,9 @@ export async function ensureSchema() {
 
       CREATE INDEX IF NOT EXISTS idx_contributions_status
         ON contributions (status);
+
+      CREATE INDEX IF NOT EXISTS idx_contributions_contributor_email
+        ON contributions (contributor_email);
     `).then(() => undefined);
   }
 
@@ -259,7 +268,7 @@ export async function listComparisonWords(input: { q?: string; offset?: number; 
       ? (
           await pool.query<WordComparisonContribution>(
             `
-            SELECT id, word_id, language, translation, synonyms, contributor_name, notes, created_at
+            SELECT id, word_id, language, translation, synonyms, contributor_name, contributor_email, notes, created_at
             FROM contributions
             WHERE word_id = ANY($1::int[])
               AND status = 'approved'
@@ -303,13 +312,14 @@ export async function createContribution(input: {
   translation: string;
   synonyms?: string;
   contributorName?: string;
+  contributorEmail?: string;
   notes?: string;
 }) {
   await ensureSchema();
   const result = await getPool().query<{ id: number }>(
     `
-    INSERT INTO contributions (word_id, language, translation, synonyms, contributor_name, notes)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO contributions (word_id, language, translation, synonyms, contributor_name, contributor_email, notes)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id
   `,
     [
@@ -318,11 +328,25 @@ export async function createContribution(input: {
       input.translation.trim(),
       input.synonyms?.trim() ?? '',
       input.contributorName?.trim() ?? '',
+      input.contributorEmail?.trim().toLowerCase() ?? '',
       input.notes?.trim() ?? '',
     ]
   );
 
   return result.rows[0].id;
+}
+
+export async function getContributorStats(email: string) {
+  await ensureSchema();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return { contributionCount: 0, points: 0 };
+
+  const result = await getPool().query<{ total: string }>(
+    `SELECT COUNT(*) AS total FROM contributions WHERE contributor_email = $1`,
+    [normalizedEmail]
+  );
+  const contributionCount = Number(result.rows[0]?.total ?? 0);
+  return { contributionCount, points: contributionCount * 50 };
 }
 
 export async function listAdminContributions(input: { q?: string; offset?: number; limit?: number }) {
@@ -336,7 +360,8 @@ export async function listAdminContributions(input: { q?: string; offset?: numbe
         OR c.language ILIKE $1
         OR c.translation ILIKE $1
         OR c.synonyms ILIKE $1
-        OR c.contributor_name ILIKE $1`
+        OR c.contributor_name ILIKE $1
+        OR c.contributor_email ILIKE $1`
     : '';
   const params = searchPattern ? [searchPattern, limit, offset] : [limit, offset];
   const limitParam = searchPattern ? '$2' : '$1';
@@ -363,6 +388,7 @@ export async function listAdminContributions(input: { q?: string; offset?: numbe
       c.translation,
       c.synonyms,
       c.contributor_name,
+      c.contributor_email,
       c.notes,
       c.status,
       c.created_at
@@ -391,6 +417,7 @@ export async function listAdminWords(input: { language: string; q?: string; offs
         OR c.translation ILIKE $2
         OR c.synonyms ILIKE $2
         OR c.contributor_name ILIKE $2
+        OR c.contributor_email ILIKE $2
       )`
     : '';
   const params = searchPattern ? [language, searchPattern, limit, offset] : [language, limit, offset];
@@ -402,7 +429,7 @@ export async function listAdminWords(input: { language: string; q?: string; offs
     SELECT COUNT(*) AS total
     FROM predefined_words w
     LEFT JOIN LATERAL (
-      SELECT translation, synonyms, contributor_name
+      SELECT translation, synonyms, contributor_name, contributor_email
       FROM contributions
       WHERE word_id = w.id AND language = $1
       ORDER BY created_at DESC, id DESC
@@ -426,12 +453,13 @@ export async function listAdminWords(input: { language: string; q?: string; offs
       c.translation,
       c.synonyms,
       c.contributor_name,
+      c.contributor_email,
       c.notes,
       c.status,
       c.created_at
     FROM predefined_words w
     LEFT JOIN LATERAL (
-      SELECT id, language, translation, synonyms, contributor_name, notes, status, created_at
+      SELECT id, language, translation, synonyms, contributor_name, contributor_email, notes, status, created_at
       FROM contributions
       WHERE word_id = w.id AND language = $1
       ORDER BY created_at DESC, id DESC

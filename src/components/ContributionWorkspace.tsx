@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Languages, LibraryBig, Rows3, Save, Search, Sparkles } from 'lucide-react';
+import { Award, ChevronLeft, ChevronRight, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Sparkles } from 'lucide-react';
 import { useUiText } from '@/lib/uiLocale';
 
 type LanguageOption = {
@@ -26,8 +26,26 @@ type ApiResponse = {
   offset: number;
 };
 
+type ContributorStats = {
+  contributionCount: number;
+  points: number;
+};
+
+type ContributorSessionResponse = ContributorStats & {
+  authenticated: boolean;
+  email: string;
+  googleConfigured: boolean;
+};
+
+type ContributionResponse = {
+  ok: boolean;
+  id: number;
+  contributorStats?: ContributorStats;
+};
+
 const PAGE_SIZE = 18;
 const CONTRIBUTOR_NAME_STORAGE_KEY = 'bamilekeContributorName';
+const CONTRIBUTOR_EMAIL_STORAGE_KEY = 'bamilekeContributorEmail';
 
 export function ContributionWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
   const t = useUiText();
@@ -40,6 +58,10 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [translation, setTranslation] = useState('');
   const [synonyms, setSynonyms] = useState('');
   const [contributorName, setContributorName] = useState('');
+  const [contributorEmail, setContributorEmail] = useState('');
+  const [contributorStats, setContributorStats] = useState<ContributorStats>({ contributionCount: 0, points: 0 });
+  const [isContributorSignedIn, setIsContributorSignedIn] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -80,6 +102,21 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   useEffect(() => {
     const storedName = window.sessionStorage.getItem(CONTRIBUTOR_NAME_STORAGE_KEY);
     if (storedName) setContributorName(storedName);
+    const storedEmail = window.sessionStorage.getItem(CONTRIBUTOR_EMAIL_STORAGE_KEY);
+    if (storedEmail) setContributorEmail(storedEmail);
+
+    fetch('/api/contributor/session', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((payload: ContributorSessionResponse) => {
+        setGoogleConfigured(payload.googleConfigured);
+        setIsContributorSignedIn(payload.authenticated);
+        if (payload.email) {
+          setContributorEmail(payload.email);
+          window.sessionStorage.setItem(CONTRIBUTOR_EMAIL_STORAGE_KEY, payload.email);
+        }
+        setContributorStats({ contributionCount: payload.contributionCount, points: payload.points });
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -90,6 +127,26 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       window.sessionStorage.removeItem(CONTRIBUTOR_NAME_STORAGE_KEY);
     }
   }, [contributorName]);
+
+  useEffect(() => {
+    const trimmedEmail = contributorEmail.trim().toLowerCase();
+    if (trimmedEmail) {
+      window.sessionStorage.setItem(CONTRIBUTOR_EMAIL_STORAGE_KEY, trimmedEmail);
+    } else {
+      window.sessionStorage.removeItem(CONTRIBUTOR_EMAIL_STORAGE_KEY);
+      setContributorStats({ contributionCount: 0, points: 0 });
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!trimmedEmail || !trimmedEmail.includes('@')) return;
+      fetch(`/api/contributor/stats?email=${encodeURIComponent(trimmedEmail)}`, { cache: 'no-store' })
+        .then((response) => response.json())
+        .then((payload: ContributorStats) => setContributorStats(payload))
+        .catch(() => undefined);
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [contributorEmail]);
 
   const selectedWord = useMemo(
     () => data.rows.find((word) => word.id === selectedWordId) ?? data.rows[0] ?? null,
@@ -128,6 +185,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
         translation,
         synonyms,
         contributorName,
+        contributorEmail,
         notes,
       }),
     });
@@ -138,6 +196,8 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       return;
     }
 
+    const payload = (await response.json()) as ContributionResponse;
+    if (payload.contributorStats) setContributorStats(payload.contributorStats);
     setMessage(t.saved);
     setData((current) => ({
       ...current,
@@ -341,6 +401,58 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     placeholder={t.synonymsPlaceholder}
                   />
                 </label>
+                <div className="rounded-xl border border-[#e2dccc] bg-[#fbfaf6] p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <label className="grid flex-1 gap-2">
+                      <span className="flex items-center gap-2 text-base font-semibold text-[#30352f]">
+                        <Mail className="h-4 w-4 text-[#2f6b58]" />
+                        {t.contributorEmail}
+                      </span>
+                      <input
+                        type="email"
+                        value={contributorEmail}
+                        onChange={(event) => setContributorEmail(event.target.value)}
+                        disabled={isContributorSignedIn}
+                        className="h-12 rounded-lg border border-[#c4bba8] px-4 text-base outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10 disabled:bg-[#ede8dc] disabled:text-[#62685d]"
+                        placeholder="name@example.com"
+                      />
+                      <span className="text-sm font-medium text-[#62685d]">{t.contributorEmailHint}</span>
+                    </label>
+                    <div className="grid gap-3 sm:min-w-72">
+                      <div className="rounded-lg border border-[#d6cfbf] bg-white p-3">
+                        <span className="flex items-center gap-2 text-sm font-semibold text-[#2f6b58]">
+                          <Award className="h-4 w-4" />
+                          {t.contributorProfile}
+                        </span>
+                        <p className="mt-2 text-2xl font-semibold text-[#18221d]">{contributorStats.points} {t.points}</p>
+                        <p className="text-sm font-medium text-[#62685d]">
+                          {t.contributionPoints(contributorStats.contributionCount, contributorStats.points)}
+                        </p>
+                      </div>
+                      {isContributorSignedIn ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await fetch('/api/contributor/session', { method: 'DELETE' });
+                            setIsContributorSignedIn(false);
+                          }}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          {t.signOut}
+                        </button>
+                      ) : googleConfigured ? (
+                        <a
+                          href="/api/contributor/oauth/google/start"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
+                        >
+                          <span className="grid h-5 w-5 place-items-center rounded-full bg-white font-semibold text-[#4285f4]">G</span>
+                          {t.signInWithGoogle}
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   <label className="grid gap-2">
                     <span className="text-base font-semibold text-[#30352f]">{t.yourName}</span>

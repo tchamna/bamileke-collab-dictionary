@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createContribution, getWord } from '@/lib/db';
+import { getContributorSession, normalizeContributorEmail } from '@/lib/contributorAuth';
+import { createContribution, getContributorStats, getWord } from '@/lib/db';
 import { LANGUAGES } from '@/lib/languages';
 
 const languageIds = new Set<string>(LANGUAGES.map((language) => language.id));
@@ -11,6 +12,7 @@ const contributionSchema = z.object({
   translation: z.string().trim().min(1, 'Translation is required.').max(800),
   synonyms: z.string().trim().max(1200).optional().default(''),
   contributorName: z.string().trim().max(120).optional().default(''),
+  contributorEmail: z.union([z.string().trim().email(), z.literal('')]).optional().default(''),
   notes: z.string().trim().max(1200).optional().default(''),
 });
 
@@ -33,6 +35,9 @@ export async function POST(request: NextRequest) {
   }
 
   const language = languageIds.has(parsed.data.language) ? parsed.data.language : 'other';
-  const id = await createContribution({ ...parsed.data, language });
-  return NextResponse.json({ ok: true, id });
+  const contributorSession = await getContributorSession();
+  const contributorEmail = normalizeContributorEmail(contributorSession?.email || parsed.data.contributorEmail || '');
+  const id = await createContribution({ ...parsed.data, language, contributorEmail });
+  const contributorStats = contributorEmail ? await getContributorStats(contributorEmail) : { contributionCount: 0, points: 0 };
+  return NextResponse.json({ ok: true, id, contributorStats });
 }
