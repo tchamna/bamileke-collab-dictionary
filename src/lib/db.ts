@@ -45,6 +45,21 @@ export type AdminContributionRow = {
   created_at: Date;
 };
 
+export type AdminWordRow = {
+  word_id: number;
+  french: string;
+  english: string;
+  nufi_json: string[];
+  contribution_id: number | null;
+  language: string | null;
+  translation: string | null;
+  synonyms: string | null;
+  contributor_name: string | null;
+  notes: string | null;
+  status: string | null;
+  created_at: Date | null;
+};
+
 export type ComparisonWordRow = {
   id: number;
   french: string;
@@ -350,6 +365,121 @@ export async function listAdminContributions(input: { q?: string; offset?: numbe
   );
 
   return { rows: rowsResult.rows, total: Number(countResult.rows[0]?.total ?? 0), limit, offset };
+}
+
+export async function listAdminWords(input: { language: string; q?: string; offset?: number; limit?: number }) {
+  await ensureSchema();
+  const limit = normalizeLimit(input.limit, 50);
+  const offset = normalizeOffset(input.offset);
+  const language = input.language.trim();
+  const q = input.q?.trim() ?? '';
+  const searchPattern = q ? `%${q}%` : null;
+  const searchWhere = searchPattern
+    ? `AND (
+        w.search_text ILIKE $2
+        OR c.translation ILIKE $2
+        OR c.synonyms ILIKE $2
+        OR c.contributor_name ILIKE $2
+      )`
+    : '';
+  const params = searchPattern ? [language, searchPattern, limit, offset] : [language, limit, offset];
+  const limitParam = searchPattern ? '$3' : '$2';
+  const offsetParam = searchPattern ? '$4' : '$3';
+
+  const countResult = await getPool().query<{ total: string }>(
+    `
+    SELECT COUNT(*) AS total
+    FROM predefined_words w
+    LEFT JOIN LATERAL (
+      SELECT translation, synonyms, contributor_name
+      FROM contributions
+      WHERE word_id = w.id AND language = $1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ) c ON true
+    WHERE 1 = 1
+      ${searchWhere}
+  `,
+    searchPattern ? [language, searchPattern] : [language]
+  );
+
+  const rowsResult = await getPool().query<AdminWordRow>(
+    `
+    SELECT
+      w.id AS word_id,
+      w.french,
+      w.english,
+      w.nufi_json,
+      c.id AS contribution_id,
+      c.language,
+      c.translation,
+      c.synonyms,
+      c.contributor_name,
+      c.notes,
+      c.status,
+      c.created_at
+    FROM predefined_words w
+    LEFT JOIN LATERAL (
+      SELECT id, language, translation, synonyms, contributor_name, notes, status, created_at
+      FROM contributions
+      WHERE word_id = w.id AND language = $1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ) c ON true
+    WHERE 1 = 1
+      ${searchWhere}
+    ORDER BY
+      CASE WHEN c.id IS NULL THEN 1 ELSE 0 END,
+      w.id ASC
+    LIMIT ${limitParam} OFFSET ${offsetParam}
+  `,
+    params
+  );
+
+  return { rows: rowsResult.rows, total: Number(countResult.rows[0]?.total ?? 0), limit, offset };
+}
+
+export async function upsertAdminWordContribution(input: {
+  wordId: number;
+  contributionId?: number | null;
+  language: string;
+  translation: string;
+  synonyms: string;
+  contributorName: string;
+  notes: string;
+  status: string;
+}) {
+  await ensureSchema();
+  if (input.contributionId) {
+    const result = await updateAdminContribution({
+      id: input.contributionId,
+      language: input.language,
+      translation: input.translation,
+      synonyms: input.synonyms,
+      contributorName: input.contributorName,
+      notes: input.notes,
+      status: input.status,
+    });
+    return result?.id ?? null;
+  }
+
+  const result = await getPool().query<{ id: number }>(
+    `
+    INSERT INTO contributions (word_id, language, translation, synonyms, contributor_name, notes, status)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING id
+  `,
+    [
+      input.wordId,
+      input.language.trim(),
+      input.translation.trim(),
+      input.synonyms.trim(),
+      input.contributorName.trim(),
+      input.notes.trim(),
+      input.status.trim(),
+    ]
+  );
+  return result.rows[0]?.id ?? null;
 }
 
 export async function updateAdminContribution(input: {

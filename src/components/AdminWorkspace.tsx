@@ -1,14 +1,15 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Languages, LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
+import { LANGUAGES } from '@/lib/languages';
 
-type AdminContribution = {
-  id: number;
+type AdminWord = {
   wordId: number;
   french: string;
   english: string;
   nufi: string[];
+  contributionId: number | null;
   language: string;
   translation: string;
   synonyms: string;
@@ -18,13 +19,13 @@ type AdminContribution = {
 };
 
 type AdminResponse = {
-  rows: AdminContribution[];
+  rows: AdminWord[];
   total: number;
   offset: number;
   limit: number;
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 24;
 
 export function AdminWorkspace() {
   const [configured, setConfigured] = useState(true);
@@ -35,9 +36,11 @@ export function AdminWorkspace() {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [language, setLanguage] = useState('ghomala');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [offset, setOffset] = useState(0);
+  const [selectedWordId, setSelectedWordId] = useState<number | null>(null);
   const [data, setData] = useState<AdminResponse>({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -63,8 +66,8 @@ export function AdminWorkspace() {
 
   useEffect(() => {
     if (!authenticated) return;
-    loadContributions();
-  }, [authenticated, activeQuery, offset]);
+    loadWords();
+  }, [authenticated, activeQuery, offset, language]);
 
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -88,20 +91,26 @@ export function AdminWorkspace() {
     await fetch('/api/admin/session', { method: 'DELETE' });
     setAuthenticated(false);
     setAdminEmail('');
+    setSelectedWordId(null);
     setData({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   }
 
-  async function loadContributions() {
+  async function loadWords() {
     setIsLoading(true);
-    const response = await fetch(`/api/admin/contributions?q=${encodeURIComponent(activeQuery)}&offset=${offset}&limit=${PAGE_SIZE}`, {
+    const response = await fetch(`/api/admin/words?language=${encodeURIComponent(language)}&q=${encodeURIComponent(activeQuery)}&offset=${offset}&limit=${PAGE_SIZE}`, {
       cache: 'no-store',
     });
     setIsLoading(false);
     if (!response.ok) {
-      setMessage('Unable to load admin entries.');
+      setMessage('Unable to load words.');
       return;
     }
-    setData(await response.json());
+    const payload = (await response.json()) as AdminResponse;
+    setData(payload);
+    setSelectedWordId((current) => {
+      if (current && payload.rows.some((row) => row.wordId === current)) return current;
+      return payload.rows[0]?.wordId ?? null;
+    });
   }
 
   function search(event: FormEvent) {
@@ -110,36 +119,58 @@ export function AdminWorkspace() {
     setActiveQuery(query.trim());
   }
 
-  function updateLocal(id: number, patch: Partial<AdminContribution>) {
+  function updateLocal(wordId: number, patch: Partial<AdminWord>) {
     setData((current) => ({
       ...current,
-      rows: current.rows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+      rows: current.rows.map((row) => (row.wordId === wordId ? { ...row, ...patch } : row)),
     }));
   }
 
-  async function save(row: AdminContribution) {
+  async function save(row: AdminWord) {
     setMessage('');
-    const response = await fetch(`/api/admin/contributions/${row.id}`, {
-      method: 'PATCH',
+    const response = await fetch('/api/admin/words', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(row),
+      body: JSON.stringify({
+        wordId: row.wordId,
+        contributionId: row.contributionId,
+        language,
+        translation: row.translation,
+        synonyms: row.synonyms,
+        contributorName: row.contributorName,
+        notes: row.notes,
+        status: row.status,
+      }),
     });
-    setMessage(response.ok ? 'Entry saved.' : 'Unable to save entry.');
+    if (!response.ok) {
+      setMessage('Unable to save entry.');
+      return;
+    }
+    const payload = (await response.json()) as { contributionId: number };
+    updateLocal(row.wordId, { contributionId: payload.contributionId, language });
+    setMessage('Entry saved.');
   }
 
-  async function remove(row: AdminContribution) {
-    const confirmed = window.confirm(`Delete contribution for "${row.french}" in ${row.language}?`);
+  async function remove(row: AdminWord) {
+    if (!row.contributionId) {
+      setMessage('There is no translation to delete for this word.');
+      return;
+    }
+    const confirmed = window.confirm(`Delete ${language} translation for "${row.french}"?`);
     if (!confirmed) return;
 
-    const response = await fetch(`/api/admin/contributions/${row.id}`, { method: 'DELETE' });
+    const response = await fetch(`/api/admin/contributions/${row.contributionId}`, { method: 'DELETE' });
     if (!response.ok) {
       setMessage('Unable to delete entry.');
       return;
     }
     setData((current) => ({
       ...current,
-      total: Math.max(0, current.total - 1),
-      rows: current.rows.filter((item) => item.id !== row.id),
+      rows: current.rows.map((item) =>
+        item.wordId === row.wordId
+          ? { ...item, contributionId: null, translation: '', synonyms: '', contributorName: '', notes: '', status: 'approved' }
+          : item
+      ),
     }));
     setMessage('Entry deleted.');
   }
@@ -253,6 +284,8 @@ export function AdminWorkspace() {
   }
 
   const pageEnd = Math.min(offset + data.rows.length, data.total);
+  const selectedWord = data.rows.find((row) => row.wordId === selectedWordId) ?? data.rows[0] ?? null;
+  const selectedLanguageLabel = LANGUAGES.find((item) => item.id === language)?.label ?? language;
 
   return (
     <main className="min-h-screen bg-[#f4f3ed] text-[#20231f]">
@@ -273,13 +306,31 @@ export function AdminWorkspace() {
               Sign out
             </button>
           </div>
-          <form onSubmit={search} className="flex flex-col gap-3 rounded-lg border border-[#d8d6c8] bg-white p-2 shadow-sm sm:flex-row">
+          <form onSubmit={search} className="grid gap-3 rounded-lg border border-[#d8d6c8] bg-white p-2 shadow-sm lg:grid-cols-[280px_1fr_auto]">
+            <label className="relative">
+              <Languages className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69705f]" />
+              <select
+                value={language}
+                onChange={(event) => {
+                  setLanguage(event.target.value);
+                  setOffset(0);
+                  setSelectedWordId(null);
+                }}
+                className="h-12 w-full rounded-md border border-transparent bg-[#fbfaf6] pl-12 pr-4 text-base font-semibold outline-none focus:border-[#295f4e]"
+              >
+                {LANGUAGES.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69705f]" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search French, Nufi, language, translation, contributor..."
+                placeholder={`Search French, Nufi, ${selectedLanguageLabel} translation, contributor...`}
                 className="h-12 w-full rounded-md border border-transparent bg-[#fbfaf6] pl-12 pr-4 text-base outline-none focus:border-[#295f4e]"
               />
             </label>
@@ -320,102 +371,162 @@ export function AdminWorkspace() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-[#d8d6c8] bg-white px-4 py-3 shadow-sm">
-          <p className="text-sm font-medium text-[#5e6459]">
-            {isLoading ? 'Loading...' : `${offset + 1}-${pageEnd} of ${data.total}`}
-          </p>
-          {message ? <p className="text-sm font-semibold text-[#295f4e]">{message}</p> : null}
-        </div>
+      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(280px,390px)_1fr] lg:px-8">
+        <aside className="overflow-hidden rounded-lg border border-[#d8d6c8] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#e3e3da] bg-[#fbfaf6] px-4 py-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#687064]">{selectedLanguageLabel}</p>
+              <p className="mt-1 text-sm font-semibold text-[#4d554b]">
+                {isLoading ? 'Loading...' : `${offset + 1}-${pageEnd} of ${data.total}`}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                disabled={offset === 0}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#cfd2c3] bg-white disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+                disabled={offset + PAGE_SIZE >= data.total}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#cfd2c3] bg-white disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          <div className="max-h-[calc(100vh-320px)] overflow-auto p-2">
+            {data.rows.map((row) => (
+              <button
+                key={row.wordId}
+                type="button"
+                onClick={() => {
+                  setSelectedWordId(row.wordId);
+                  setMessage('');
+                }}
+                className={`mb-2 block w-full rounded-md border p-3 text-left transition ${
+                  selectedWord?.wordId === row.wordId
+                    ? 'border-[#295f4e] bg-[#eef7f0]'
+                    : 'border-[#e1e2d8] bg-white hover:border-[#9ba58f]'
+                }`}
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span>
+                    <span className="block text-lg font-semibold text-[#20231f]">{row.french}</span>
+                    <span className="mt-1 block text-sm text-[#60665b]">{row.nufi.slice(0, 3).join(' / ') || '-'}</span>
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      row.contributionId ? 'bg-[#e8efe8] text-[#295f4e]' : 'bg-[#f1eee6] text-[#7a7569]'
+                    }`}
+                  >
+                    {row.contributionId ? 'Filled' : 'Empty'}
+                  </span>
+                </span>
+                {row.translation ? <span className="mt-2 block text-sm font-semibold text-[#344437]">{row.translation}</span> : null}
+              </button>
+            ))}
+          </div>
+        </aside>
 
-        <div className="grid gap-4">
-          {data.rows.map((row) => (
-            <article key={row.id} className="rounded-lg border border-[#d8d6c8] bg-white p-4 shadow-sm">
-              <div className="grid gap-4 lg:grid-cols-[minmax(240px,340px)_1fr]">
-                <div className="rounded-md bg-[#fbfaf6] p-4">
+        <article className="rounded-lg border border-[#d8d6c8] bg-white p-4 shadow-sm sm:p-5">
+          {selectedWord ? (
+            <div className="grid gap-5">
+              <div className="grid gap-4 rounded-md bg-[#fbfaf6] p-4 md:grid-cols-[1fr_1fr]">
+                <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#687064]">French</p>
-                  <h2 className="mt-1 text-2xl font-semibold">{row.french}</h2>
-                  {row.english ? <p className="mt-2 text-sm text-[#62685d]">English: {row.english}</p> : null}
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-[#687064]">Nufi</p>
-                  <p className="mt-1 text-sm font-semibold">{row.nufi.join(' / ') || '-'}</p>
+                  <h2 className="mt-1 text-4xl font-semibold">{selectedWord.french}</h2>
+                  {selectedWord.english ? <p className="mt-2 text-sm text-[#62685d]">English: {selectedWord.english}</p> : null}
                 </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Language
-                    <input
-                      value={row.language}
-                      onChange={(event) => updateLocal(row.id, { language: event.target.value })}
-                      className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Status
-                    <select
-                      value={row.status}
-                      onChange={(event) => updateLocal(row.id, { status: event.target.value as AdminContribution['status'] })}
-                      className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
-                    >
-                      <option value="approved">approved</option>
-                      <option value="pending">pending</option>
-                      <option value="rejected">rejected</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold md:col-span-2">
-                    Translation
-                    <input
-                      value={row.translation}
-                      onChange={(event) => updateLocal(row.id, { translation: event.target.value })}
-                      className="h-11 rounded-md border border-[#b8bcad] px-3 text-lg font-semibold"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Synonyms
-                    <textarea
-                      value={row.synonyms}
-                      onChange={(event) => updateLocal(row.id, { synonyms: event.target.value })}
-                      className="min-h-20 rounded-md border border-[#b8bcad] px-3 py-2 font-normal"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Notes
-                    <textarea
-                      value={row.notes}
-                      onChange={(event) => updateLocal(row.id, { notes: event.target.value })}
-                      className="min-h-20 rounded-md border border-[#b8bcad] px-3 py-2 font-normal"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Contributor
-                    <input
-                      value={row.contributorName}
-                      onChange={(event) => updateLocal(row.id, { contributorName: event.target.value })}
-                      className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
-                    />
-                  </label>
-                  <div className="flex items-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => save(row)}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-4 font-semibold text-white"
-                    >
-                      <Save className="h-4 w-4" />
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(row)}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c97962] bg-white px-4 font-semibold text-[#9b3d2f]"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </button>
-                  </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#687064]">Nufi</p>
+                  <p className="mt-2 text-lg font-semibold">{selectedWord.nufi.join(' / ') || '-'}</p>
+                  <p className="mt-3 text-sm font-semibold text-[#4d6252]">
+                    {selectedWord.contributionId ? `Editing ${selectedLanguageLabel} translation` : `No ${selectedLanguageLabel} translation yet`}
+                  </p>
                 </div>
               </div>
-            </article>
-          ))}
-        </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-1 text-sm font-semibold md:col-span-2">
+                  Translation in {selectedLanguageLabel}
+                  <input
+                    value={selectedWord.translation}
+                    onChange={(event) => updateLocal(selectedWord.wordId, { translation: event.target.value })}
+                    className="h-12 rounded-md border border-[#b8bcad] px-3 text-lg font-semibold"
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">
+                  Status
+                  <select
+                    value={selectedWord.status}
+                    onChange={(event) => updateLocal(selectedWord.wordId, { status: event.target.value as AdminWord['status'] })}
+                    className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
+                  >
+                    <option value="approved">approved</option>
+                    <option value="pending">pending</option>
+                    <option value="rejected">rejected</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">
+                  Contributor
+                  <input
+                    value={selectedWord.contributorName}
+                    onChange={(event) => updateLocal(selectedWord.wordId, { contributorName: event.target.value })}
+                    className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">
+                  Synonyms
+                  <textarea
+                    value={selectedWord.synonyms}
+                    onChange={(event) => updateLocal(selectedWord.wordId, { synonyms: event.target.value })}
+                    className="min-h-24 rounded-md border border-[#b8bcad] px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-semibold">
+                  Notes
+                  <textarea
+                    value={selectedWord.notes}
+                    onChange={(event) => updateLocal(selectedWord.wordId, { notes: event.target.value })}
+                    className="min-h-24 rounded-md border border-[#b8bcad] px-3 py-2 font-normal"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-[#e3e3da] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="min-h-6 text-sm font-semibold text-[#295f4e]">{message}</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => save(selectedWord)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-4 font-semibold text-white"
+                  >
+                    <Save className="h-4 w-4" />
+                    {selectedWord.contributionId ? 'Update translation' : 'Create translation'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(selectedWord)}
+                    disabled={!selectedWord.contributionId}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c97962] bg-white px-4 font-semibold text-[#9b3d2f] disabled:opacity-40"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-16 text-center text-[#62685d]">No words found.</div>
+          )}
+        </article>
       </section>
     </main>
   );
