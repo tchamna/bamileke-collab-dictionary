@@ -6,11 +6,12 @@ A simple contribution interface for translating a predefined French/Nufi word li
 
 ```powershell
 npm install
+npm run import:ready -- --dry-run "C:\Users\tcham\Wokspace\Dictionnaire-Bamileke-Collaboratif\nufi_dictionary_transformed - Copy.xlsx"
 npm run import:ready -- "C:\Users\tcham\Wokspace\Dictionnaire-Bamileke-Collaboratif\nufi_dictionary_transformed - Copy.xlsx"
 npm run dev
 ```
 
-The app stores predefined words and community contributions in `data/collaborative-dictionary.sqlite`.
+The import is an upsert pipeline. It inserts new base words and updates existing French/English/Nufi references without deleting contributor translations.
 
 ## Environment
 

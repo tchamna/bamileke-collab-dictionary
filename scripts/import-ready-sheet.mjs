@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -7,9 +8,12 @@ import xlsx from 'xlsx';
 
 const { Pool } = pg;
 
+const args = process.argv.slice(2);
+const dryRun = args.includes('--dry-run');
+const workbookArg = args.find((arg) => !arg.startsWith('--'));
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const defaultWorkbook = path.resolve(repoRoot, '..', 'nufi_dictionary_transformed - Copy.xlsx');
-const workbookPath = process.argv[2] ? path.resolve(process.argv[2]) : defaultWorkbook;
+const workbookPath = workbookArg ? path.resolve(workbookArg) : defaultWorkbook;
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
@@ -29,7 +33,8 @@ if (!sheet) {
   process.exit(1);
 }
 
-const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+const workbookRows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+const records = buildImportRecords(workbookRows);
 const pool = new Pool({
   connectionString: databaseUrl,
   max: 2,
@@ -39,34 +44,106 @@ const pool = new Pool({
 await ensureSchema();
 
 const client = await pool.connect();
-let imported = 0;
+const stats = {
+  workbookRows: workbookRows.length,
+  readyRecords: records.length,
+  inserted: 0,
+  updated: 0,
+  unchanged: 0,
+  staleDatabaseRows: 0,
+};
+
 try {
   await client.query('BEGIN');
-  await client.query('TRUNCATE predefined_words RESTART IDENTITY CASCADE');
 
-  for (const [index, row] of rows.entries()) {
-    const french = normalizeCell(row.French);
-    if (!french) continue;
+  const existingRows = (
+    await client.query(`
+      SELECT id, french, english, nufi_json, search_text, source_row, import_key
+      FROM predefined_words
+      ORDER BY id ASC
+    `)
+  ).rows.map((row) => ({
+    ...row,
+    nufi_json: Array.isArray(row.nufi_json) ? row.nufi_json : [],
+  }));
 
-    const english = normalizeCell(row.English);
-    const nufiValues = [];
-    for (let i = 1; i <= 14; i += 1) {
-      const value = normalizeCell(row[`Nufi_${i}`]);
-      if (value) nufiValues.push(value);
-    }
+  const existingByImportKey = new Map();
+  const existingByComputedKey = new Map();
+  const existingByFrench = new Map();
 
-    const searchText = [french, english, ...nufiValues].join(' ').toLocaleLowerCase();
-    await client.query(
-      `
-      INSERT INTO predefined_words (french, english, nufi_json, search_text, source_row)
-      VALUES ($1, $2, $3::jsonb, $4, $5)
-    `,
-      [french, english, JSON.stringify(nufiValues), searchText, index + 2]
-    );
-    imported += 1;
+  for (const row of assignImportKeys(existingRows)) {
+    if (row.import_key) existingByImportKey.set(row.import_key, row);
+    existingByComputedKey.set(row.importKey, row);
+    const frenchKey = normalizeForKey(row.french);
+    const bucket = existingByFrench.get(frenchKey) ?? [];
+    bucket.push(row);
+    existingByFrench.set(frenchKey, bucket);
   }
 
-  await client.query('COMMIT');
+  const touchedIds = new Set();
+  const updatedSourceRows = new Set();
+
+  for (const record of records) {
+    const existing = findExistingRecord(record, existingByImportKey, existingByComputedKey, existingByFrench, touchedIds);
+    if (!existing) {
+      if (!dryRun) {
+        const result = await client.query(
+          `
+          INSERT INTO predefined_words (french, english, nufi_json, search_text, source_row, import_key)
+          VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+          RETURNING id
+        `,
+          [record.french, record.english, JSON.stringify(record.nufiValues), record.searchText, record.sourceRow, record.importKey]
+        );
+        touchedIds.add(result.rows[0].id);
+      }
+      updatedSourceRows.add(record.sourceRow);
+      stats.inserted += 1;
+      continue;
+    }
+
+    touchedIds.add(existing.id);
+    updatedSourceRows.add(record.sourceRow);
+
+    const changed =
+      existing.french !== record.french ||
+      existing.english !== record.english ||
+      JSON.stringify(existing.nufi_json) !== JSON.stringify(record.nufiValues) ||
+      existing.search_text !== record.searchText ||
+      existing.source_row !== record.sourceRow ||
+      existing.import_key !== record.importKey;
+
+    if (!changed) {
+      stats.unchanged += 1;
+      continue;
+    }
+
+    if (!dryRun) {
+      await client.query(
+        `
+        UPDATE predefined_words
+        SET french = $2,
+            english = $3,
+            nufi_json = $4::jsonb,
+            search_text = $5,
+            source_row = $6,
+            import_key = $7,
+            updated_at = now()
+        WHERE id = $1
+      `,
+        [existing.id, record.french, record.english, JSON.stringify(record.nufiValues), record.searchText, record.sourceRow, record.importKey]
+      );
+    }
+    stats.updated += 1;
+  }
+
+  stats.staleDatabaseRows = existingRows.filter((row) => !touchedIds.has(row.id)).length;
+
+  if (dryRun) {
+    await client.query('ROLLBACK');
+  } else {
+    await client.query('COMMIT');
+  }
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;
@@ -75,7 +152,11 @@ try {
   await pool.end();
 }
 
-console.log(`Imported ${imported} Ready rows into PostgreSQL.`);
+console.log(`${dryRun ? 'Dry run' : 'Upsert'} completed for Ready sheet.`);
+console.table(stats);
+if (stats.staleDatabaseRows > 0) {
+  console.log('Stale database rows were left untouched. Contributions remain attached to their existing base words.');
+}
 
 async function ensureSchema() {
   await pool.query(`
@@ -85,10 +166,14 @@ async function ensureSchema() {
       english         TEXT NOT NULL DEFAULT '',
       nufi_json       JSONB NOT NULL DEFAULT '[]'::jsonb,
       search_text     TEXT NOT NULL DEFAULT '',
-      source_row      INTEGER NOT NULL UNIQUE,
+      source_row      INTEGER NOT NULL,
+      import_key      TEXT,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    ALTER TABLE predefined_words DROP CONSTRAINT IF EXISTS predefined_words_source_row_key;
+    ALTER TABLE predefined_words ADD COLUMN IF NOT EXISTS import_key TEXT;
 
     CREATE TABLE IF NOT EXISTS contributions (
       id               INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -102,8 +187,22 @@ async function ensureSchema() {
       created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS admin_users (
+      email               TEXT PRIMARY KEY,
+      password_hash       TEXT NOT NULL,
+      password_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
     CREATE INDEX IF NOT EXISTS idx_predefined_words_search
       ON predefined_words (search_text);
+
+    CREATE INDEX IF NOT EXISTS idx_predefined_words_source_row
+      ON predefined_words (source_row);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_predefined_words_import_key
+      ON predefined_words (import_key)
+      WHERE import_key IS NOT NULL;
 
     CREATE INDEX IF NOT EXISTS idx_contributions_word_language
       ON contributions (word_id, language, created_at DESC);
@@ -111,6 +210,73 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_contributions_status
       ON contributions (status);
   `);
+}
+
+function buildImportRecords(rows) {
+  const baseRecords = rows
+    .map((row, index) => {
+      const french = normalizeCell(row.French);
+      if (!french) return null;
+
+      const english = normalizeCell(row.English);
+      const nufiValues = [];
+      for (let i = 1; i <= 14; i += 1) {
+        const value = normalizeCell(row[`Nufi_${i}`]);
+        if (value) nufiValues.push(value);
+      }
+
+      return {
+        french,
+        english,
+        nufiValues,
+        searchText: [french, english, ...nufiValues].join(' ').toLocaleLowerCase(),
+        sourceRow: index + 2,
+      };
+    })
+    .filter(Boolean);
+
+  return assignImportKeys(baseRecords);
+}
+
+function assignImportKeys(rows) {
+  const occurrences = new Map();
+  return rows.map((row) => {
+    const naturalKey = buildNaturalKey(row);
+    const occurrence = (occurrences.get(naturalKey) ?? 0) + 1;
+    occurrences.set(naturalKey, occurrence);
+    return { ...row, importKey: `${naturalKey}#${occurrence}` };
+  });
+}
+
+function findExistingRecord(record, existingByImportKey, existingByComputedKey, existingByFrench, touchedIds) {
+  const direct = existingByImportKey.get(record.importKey);
+  if (direct && !touchedIds.has(direct.id)) return direct;
+
+  const computed = existingByComputedKey.get(record.importKey);
+  if (computed && !touchedIds.has(computed.id)) return computed;
+
+  const frenchMatches = (existingByFrench.get(normalizeForKey(record.french)) ?? []).filter((row) => !touchedIds.has(row.id));
+  if (frenchMatches.length === 1) return frenchMatches[0];
+
+  const sameNufi = frenchMatches.filter((row) => JSON.stringify(row.nufi_json) === JSON.stringify(record.nufiValues));
+  if (sameNufi.length === 1) return sameNufi[0];
+
+  return null;
+}
+
+function buildNaturalKey(row) {
+  const nufiPart = row.nufiValues ? row.nufiValues.join('|') : row.nufi_json.join('|');
+  const raw = `${normalizeForKey(row.french)}|${normalizeForKey(nufiPart)}`;
+  return crypto.createHash('sha1').update(raw).digest('hex');
+}
+
+function normalizeForKey(value) {
+  return normalizeCell(value)
+    .toLocaleLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 }
 
 function normalizeCell(value) {
