@@ -33,6 +33,8 @@ export function AdminWorkspace() {
   const [adminEmail, setAdminEmail] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [offset, setOffset] = useState(0);
@@ -142,12 +144,38 @@ export function AdminWorkspace() {
     setMessage('Entry deleted.');
   }
 
+  async function savePassword(event: FormEvent) {
+    event.preventDefault();
+    setMessage('');
+    if (newPassword.length < 12) {
+      setMessage('Password must be at least 12 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage('Passwords do not match.');
+      return;
+    }
+
+    const response = await fetch('/api/admin/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    if (!response.ok) {
+      setMessage('Unable to save password.');
+      return;
+    }
+    setNewPassword('');
+    setConfirmPassword('');
+    setMessage('Your admin password was saved.');
+  }
+
   if (!configured) {
     return (
       <main className="min-h-screen bg-[#f4f3ed] px-4 py-10 text-[#20231f]">
         <section className="mx-auto max-w-xl rounded-lg border border-[#d8d6c8] bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Admin not configured</h1>
-          <p className="mt-3 text-[#62685d]">Set ADMIN_EMAILS, ADMIN_PASSWORD, and ADMIN_SESSION_SECRET in the app environment.</p>
+          <p className="mt-3 text-[#62685d]">Set ADMIN_EMAILS and ADMIN_SESSION_SECRET in the app environment.</p>
         </section>
       </main>
     );
@@ -258,6 +286,35 @@ export function AdminWorkspace() {
             <button className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-6 text-base font-semibold text-white">
               <Search className="h-5 w-5" />
               Search
+            </button>
+          </form>
+          <form onSubmit={savePassword} className="grid gap-3 rounded-lg border border-[#d8d6c8] bg-white p-4 shadow-sm lg:grid-cols-[1fr_1fr_auto]">
+            <div className="lg:col-span-3">
+              <p className="text-sm font-semibold text-[#344437]">Your password</p>
+              <p className="mt-1 text-sm text-[#62685d]">Create or change your personal password for email/password login.</p>
+            </div>
+            <label className="grid gap-1 text-sm font-semibold">
+              New password
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="grid gap-1 text-sm font-semibold">
+              Confirm password
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
+                autoComplete="new-password"
+              />
+            </label>
+            <button className="inline-flex h-11 items-center justify-center self-end rounded-md bg-[#295f4e] px-4 font-semibold text-white">
+              Save password
             </button>
           </form>
         </div>

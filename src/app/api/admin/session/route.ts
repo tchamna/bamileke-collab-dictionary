@@ -6,8 +6,10 @@ import {
   clearAdminSession,
   createAdminSession,
   getAdminSession,
-  verifyAdminCredentials,
+  isAllowedAdminEmail,
 } from '@/lib/adminAuth';
+import { getAdminPasswordHash } from '@/lib/db';
+import { verifyPassword } from '@/lib/passwordHash';
 
 const loginSchema = z.object({
   email: z.string().trim().email(),
@@ -32,12 +34,18 @@ export async function POST(request: NextRequest) {
   }
 
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success || !verifyAdminCredentials(parsed.data.email, parsed.data.password)) {
+  if (!parsed.success || !isAllowedAdminEmail(parsed.data.email)) {
     return NextResponse.json({ error: 'Invalid admin email or password.' }, { status: 401 });
   }
 
-  await createAdminSession(parsed.data.email);
-  return NextResponse.json({ ok: true, email: parsed.data.email.trim().toLowerCase() });
+  const email = parsed.data.email.trim().toLowerCase();
+  const storedHash = await getAdminPasswordHash(email);
+  if (!storedHash || !(await verifyPassword(parsed.data.password, storedHash))) {
+    return NextResponse.json({ error: 'Invalid admin email or password.' }, { status: 401 });
+  }
+
+  await createAdminSession(email);
+  return NextResponse.json({ ok: true, email });
 }
 
 export async function DELETE() {

@@ -101,6 +101,13 @@ export async function ensureSchema() {
         created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
       );
 
+      CREATE TABLE IF NOT EXISTS admin_users (
+        email              TEXT PRIMARY KEY,
+        password_hash      TEXT NOT NULL,
+        password_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
       CREATE INDEX IF NOT EXISTS idx_predefined_words_search
         ON predefined_words (search_text);
 
@@ -384,4 +391,27 @@ export async function deleteAdminContribution(id: number) {
   await ensureSchema();
   const result = await getPool().query(`DELETE FROM contributions WHERE id = $1`, [id]);
   return (result.rowCount ?? 0) > 0;
+}
+
+export async function getAdminPasswordHash(email: string) {
+  await ensureSchema();
+  const result = await getPool().query<{ password_hash: string }>(
+    `SELECT password_hash FROM admin_users WHERE email = $1 LIMIT 1`,
+    [email.trim().toLowerCase()]
+  );
+  return result.rows[0]?.password_hash ?? null;
+}
+
+export async function setAdminPasswordHash(email: string, passwordHash: string) {
+  await ensureSchema();
+  await getPool().query(
+    `
+    INSERT INTO admin_users (email, password_hash)
+    VALUES ($1, $2)
+    ON CONFLICT (email)
+    DO UPDATE SET password_hash = EXCLUDED.password_hash,
+                  password_updated_at = now()
+  `,
+    [email.trim().toLowerCase(), passwordHash]
+  );
 }

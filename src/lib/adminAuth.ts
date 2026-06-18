@@ -12,12 +12,8 @@ type AdminSession = {
   issuedAt: number;
 };
 
-function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || '';
-}
-
 function getSessionSecret() {
-  return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || '';
+  return process.env.ADMIN_SESSION_SECRET || '';
 }
 
 function getAdminEmails() {
@@ -42,7 +38,7 @@ function safeEqual(a: string, b: string) {
 }
 
 export function adminAuthConfigured() {
-  return Boolean(getAdminPassword() && getSessionSecret() && getAdminEmails().length);
+  return Boolean(getSessionSecret() && getAdminEmails().length);
 }
 
 export function adminGoogleAuthConfigured() {
@@ -51,11 +47,6 @@ export function adminGoogleAuthConfigured() {
 
 export function isAllowedAdminEmail(email: string) {
   return getAdminEmails().includes(normalizeEmail(email));
-}
-
-export function verifyAdminCredentials(email: string, password: string) {
-  const configured = getAdminPassword();
-  return Boolean(configured && isAllowedAdminEmail(email)) && safeEqual(password, configured);
 }
 
 export async function createAdminSession(email: string) {
