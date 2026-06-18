@@ -583,6 +583,41 @@ export async function updateAdminContribution(input: {
   status: string;
 }) {
   await ensureSchema();
+  if (input.status.trim() === 'rejected') {
+    const target = await getPool().query<{
+      id: number;
+      word_id: number;
+      language: string;
+      translation: string;
+      synonyms: string;
+    }>(
+      `
+      SELECT id, word_id, language, translation, synonyms
+      FROM contributions
+      WHERE id = $1
+      LIMIT 1
+    `,
+      [input.id]
+    );
+
+    const row = target.rows[0];
+    if (!row) return null;
+
+    await getPool().query(
+      `
+      UPDATE contributions
+      SET status = 'rejected'
+      WHERE word_id = $1
+        AND language = $2
+        AND translation = $3
+        AND synonyms = $4
+    `,
+      [row.word_id, row.language, row.translation, row.synonyms]
+    );
+
+    return { id: row.id };
+  }
+
   const result = await getPool().query<{ id: number }>(
     `
     UPDATE contributions
@@ -610,7 +645,34 @@ export async function updateAdminContribution(input: {
 
 export async function deleteAdminContribution(id: number) {
   await ensureSchema();
-  const result = await getPool().query(`DELETE FROM contributions WHERE id = $1`, [id]);
+  const target = await getPool().query<{
+    word_id: number;
+    language: string;
+    translation: string;
+    synonyms: string;
+  }>(
+    `
+    SELECT word_id, language, translation, synonyms
+    FROM contributions
+    WHERE id = $1
+    LIMIT 1
+  `,
+    [id]
+  );
+
+  const row = target.rows[0];
+  if (!row) return false;
+
+  const result = await getPool().query(
+    `
+    DELETE FROM contributions
+    WHERE word_id = $1
+      AND language = $2
+      AND translation = $3
+      AND synonyms = $4
+  `,
+    [row.word_id, row.language, row.translation, row.synonyms]
+  );
   return (result.rowCount ?? 0) > 0;
 }
 
