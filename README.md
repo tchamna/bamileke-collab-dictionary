@@ -15,3 +15,9 @@ The app stores predefined words and community contributions in `data/collaborati
 ## Environment
 
 Set `DATABASE_URL` to your Neon pooled PostgreSQL connection string. Prefer the pooler host and `sslmode=verify-full` for deployment.
+
+Admin access is controlled by environment variables:
+
+- `ADMIN_EMAILS`: comma-separated list of emails allowed to use `/admin`
+- `ADMIN_PASSWORD`: temporary admin login password
+- `ADMIN_SESSION_SECRET`: long random value used to sign admin sessions

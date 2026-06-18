@@ -29,6 +29,8 @@ const PAGE_SIZE = 50;
 export function AdminWorkspace() {
   const [configured, setConfigured] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
@@ -40,9 +42,10 @@ export function AdminWorkspace() {
   useEffect(() => {
     fetch('/api/admin/session', { cache: 'no-store' })
       .then((response) => response.json())
-      .then((session: { configured: boolean; authenticated: boolean }) => {
+      .then((session: { configured: boolean; authenticated: boolean; email?: string }) => {
         setConfigured(session.configured);
         setAuthenticated(session.authenticated);
+        setAdminEmail(session.email || '');
       })
       .catch(() => setConfigured(false));
   }, []);
@@ -58,12 +61,14 @@ export function AdminWorkspace() {
     const response = await fetch('/api/admin/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ email, password }),
     });
     if (!response.ok) {
-      setMessage('Invalid admin password.');
+      setMessage('Invalid admin email or password.');
       return;
     }
+    const session = (await response.json()) as { email?: string };
+    setAdminEmail(session.email || email.trim().toLowerCase());
     setPassword('');
     setAuthenticated(true);
   }
@@ -71,6 +76,7 @@ export function AdminWorkspace() {
   async function logout() {
     await fetch('/api/admin/session', { method: 'DELETE' });
     setAuthenticated(false);
+    setAdminEmail('');
     setData({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   }
 
@@ -132,7 +138,7 @@ export function AdminWorkspace() {
       <main className="min-h-screen bg-[#f4f3ed] px-4 py-10 text-[#20231f]">
         <section className="mx-auto max-w-xl rounded-lg border border-[#d8d6c8] bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">Admin not configured</h1>
-          <p className="mt-3 text-[#62685d]">Set ADMIN_PASSWORD and ADMIN_SESSION_SECRET in the app environment.</p>
+          <p className="mt-3 text-[#62685d]">Set ADMIN_EMAILS, ADMIN_PASSWORD, and ADMIN_SESSION_SECRET in the app environment.</p>
         </section>
       </main>
     );
@@ -147,13 +153,24 @@ export function AdminWorkspace() {
             <h1 className="text-2xl font-semibold">Admin login</h1>
           </div>
           <label className="mt-6 grid gap-2 text-sm font-semibold text-[#3f443c]">
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="h-12 rounded-md border border-[#b8bcad] px-4 text-base"
+              autoComplete="email"
+              autoFocus
+            />
+          </label>
+          <label className="mt-6 grid gap-2 text-sm font-semibold text-[#3f443c]">
             Password
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="h-12 rounded-md border border-[#b8bcad] px-4 text-base"
-              autoFocus
+              autoComplete="current-password"
             />
           </label>
           {message ? <p className="mt-3 text-sm font-medium text-[#7a3d2f]">{message}</p> : null}
@@ -175,6 +192,7 @@ export function AdminWorkspace() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6c6f67]">Admin</p>
               <h1 className="mt-2 text-4xl font-semibold tracking-normal">Manage translation entries</h1>
+              {adminEmail ? <p className="mt-2 text-sm font-medium text-[#62685d]">Signed in as {adminEmail}</p> : null}
             </div>
             <button
               type="button"
@@ -303,4 +321,3 @@ export function AdminWorkspace() {
     </main>
   );
 }
-
