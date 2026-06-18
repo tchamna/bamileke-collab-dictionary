@@ -51,13 +51,14 @@ jobs:
           backup_name="bamileke-collab-dictionary-$timestamp.dump"
           backup_file="$backup_dir/$backup_name"
           mkdir -p "$backup_dir"
+          backup_database_url="$(node -e 'const url = new URL(process.env.DATABASE_URL); url.searchParams.set("sslmode", "require"); url.searchParams.delete("sslrootcert"); console.log(url.toString());')"
+          echo "::add-mask::$backup_database_url"
 
           docker run --rm \
-            -e DATABASE_URL \
-            -e PGSSLROOTCERT=system \
+            -e BACKUP_DATABASE_URL="$backup_database_url" \
             -v "$PWD/$backup_dir:/backup" \
             postgres:18-bookworm \
-            pg_dump "$DATABASE_URL" \
+            pg_dump "$BACKUP_DATABASE_URL" \
             --format=custom \
             --compress=9 \
             --blobs \
