@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, Languages, Search, UsersRound } from 'lucide-react';
+import { useUiText } from '@/lib/uiLocale';
 
 type LanguageOption = {
   id: string;
@@ -38,6 +39,7 @@ type CompareResponse = {
 const PAGE_SIZE = 20;
 
 export function CompareWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
+  const t = useUiText();
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [offset, setOffset] = useState(0);
@@ -62,12 +64,12 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
         setMessage('');
       })
       .catch((error) => {
-        if (error.name !== 'AbortError') setMessage('Unable to load comparison data.');
+        if (error.name !== 'AbortError') setMessage(t.unableToLoadComparison);
       })
       .finally(() => setIsLoading(false));
 
     return () => controller.abort();
-  }, [activeQuery, offset]);
+  }, [activeQuery, offset, t.unableToLoadComparison]);
 
   function search(event: FormEvent) {
     event.preventDefault();
@@ -86,25 +88,25 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 className="inline-flex items-center gap-2 rounded-md border border-[#cfd2c3] bg-white px-3 py-2 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Contribution form
+                {t.contributionForm}
               </a>
-              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6c6f67]">Comparison</p>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6c6f67]">{t.comparison}</p>
               <h1 className="mt-2 max-w-4xl text-4xl font-semibold leading-tight tracking-normal text-[#20231f] md:text-5xl">
-                Nufi words with community translations
+                {t.comparisonTitle}
               </h1>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:min-w-80">
               <div className="rounded-lg border border-[#d8d6c8] bg-white px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-2 text-[#596056]">
                   <Languages className="h-4 w-4" />
-                  <p className="text-xs font-semibold uppercase tracking-wide">Translated words</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide">{t.translatedWords}</p>
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-[#20231f]">{isLoading ? '--' : data.total}</p>
               </div>
               <div className="rounded-lg border border-[#d8d6c8] bg-white px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-2 text-[#596056]">
                   <UsersRound className="h-4 w-4" />
-                  <p className="text-xs font-semibold uppercase tracking-wide">Shown</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide">{t.shown}</p>
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-[#20231f]">{isLoading ? '--' : data.rows.length}</p>
               </div>
@@ -116,13 +118,13 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search French or Nufi word"
+                placeholder={t.searchPlaceholder}
                 className="h-12 w-full rounded-md border border-transparent bg-[#fbfaf6] pl-12 pr-4 text-base outline-none transition focus:border-[#295f4e] focus:bg-white"
               />
             </label>
             <button className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-6 text-base font-semibold text-white shadow-sm hover:bg-[#1f4b3d]">
               <Search className="h-5 w-5" />
-              Search
+              {t.search}
             </button>
           </form>
         </div>
@@ -131,7 +133,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#d8d6c8] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-medium text-[#5e6459]">
-            {isLoading ? 'Loading translations...' : data.total === 0 ? 'No translated words yet' : `${offset + 1}-${pageEnd} of ${data.total}`}
+            {isLoading ? t.loadingTranslations : data.total === 0 ? t.noTranslatedWordsYet : `${offset + 1}-${pageEnd} ${t.of} ${data.total}`}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -140,14 +142,14 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-[#fbfaf6] px-3 text-sm font-semibold text-[#344437] transition hover:border-[#295f4e]"
             >
               {showContributors ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              {showContributors ? 'Hide names' : 'Show names'}
+              {showContributors ? t.hideNames : t.showNames}
             </button>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
                 disabled={offset === 0}
-                aria-label="Previous page"
+                aria-label={t.previousPage}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -156,7 +158,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 type="button"
                 onClick={() => setOffset(offset + PAGE_SIZE)}
                 disabled={offset + PAGE_SIZE >= data.total}
-                aria-label="Next page"
+                aria-label={t.nextPage}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -175,8 +177,8 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
           </div>
         ) : data.rows.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#c4c7b8] bg-white px-5 py-12 text-center shadow-sm">
-            <p className="text-xl font-semibold text-[#20231f]">No comparison rows yet</p>
-            <p className="mt-2 text-[#62685d]">Saved translations will appear here as contributors add them.</p>
+            <p className="text-xl font-semibold text-[#20231f]">{t.noComparisonRows}</p>
+            <p className="mt-2 text-[#62685d]">{t.savedTranslationsWillAppear}</p>
           </div>
         ) : (
           <div className="grid gap-5">
@@ -184,15 +186,15 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               <article key={word.id} className="overflow-hidden rounded-lg border border-[#d8d6c8] bg-white shadow-sm">
                 <div className="grid gap-0 lg:grid-cols-[minmax(260px,360px)_1fr]">
                   <div className="border-b border-[#ebe9df] bg-[#fbfaf6] p-5 lg:border-b-0 lg:border-r">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#687064]">French</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#687064]">{t.french}</p>
                     <h2 className="mt-2 text-3xl font-semibold leading-tight text-[#20231f]">{word.french}</h2>
-                    {word.english ? <p className="mt-2 text-sm text-[#62685d]">English: {word.english}</p> : null}
+                    {word.english ? <p className="mt-2 text-sm text-[#62685d]">{t.english}: {word.english}</p> : null}
                     <div className="mt-6 flex flex-wrap gap-2">
                       <span className="rounded-full bg-[#e6efe9] px-3 py-1 text-sm font-semibold text-[#295f4e]">
-                        {word.languageCount + (word.nufi.length ? 1 : 0)} languages
+                        {word.languageCount + (word.nufi.length ? 1 : 0)} {t.languages}
                       </span>
                       <span className="rounded-full bg-[#f1e8d6] px-3 py-1 text-sm font-semibold text-[#6d5121]">
-                        {word.contributionCount} contributions
+                        {word.contributionCount} {t.contributions}
                       </span>
                     </div>
                   </div>
@@ -200,29 +202,29 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                   <div className="p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#687064]">
-                        Bamileke language versions
+                        {t.bamilekeVersions}
                       </h3>
-                      <p className="text-sm font-medium text-[#62685d]">{word.contributions.length} rows</p>
+                      <p className="text-sm font-medium text-[#62685d]">{word.contributions.length} {t.rows}</p>
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-[#dfded2]">
                       <table className="w-full min-w-[760px] border-collapse bg-white text-left">
                         <thead className="bg-[#eef1e8]">
                           <tr>
                             <th className="w-44 border-b border-[#d8d6c8] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#596056]">
-                              Language
+                              {t.language}
                             </th>
                             <th className="border-b border-[#d8d6c8] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#596056]">
-                              Translation
+                              {t.translation}
                             </th>
                             <th className="border-b border-[#d8d6c8] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#596056]">
-                              Synonyms
+                              {t.synonyms}
                             </th>
                             <th className="border-b border-[#d8d6c8] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#596056]">
-                              Notes
+                              {t.notes}
                             </th>
                             {showContributors ? (
                               <th className="w-40 border-b border-[#d8d6c8] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#596056]">
-                                Contributor
+                                {t.contributor}
                               </th>
                             ) : null}
                           </tr>
@@ -240,7 +242,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                                 <span className="text-[#9a9e92]">-</span>
                               </td>
                               <td className="px-4 py-4 align-top text-sm leading-relaxed text-[#596056]">
-                                Reference from the imported Nufi sheet
+                                {t.nufiImportReference}
                               </td>
                               {showContributors ? (
                                 <td className="px-4 py-4 align-top text-sm font-medium text-[#596056]">
