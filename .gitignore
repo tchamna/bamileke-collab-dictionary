@@ -1,0 +1,11 @@
+.next
+node_modules
+dist
+.env
+.env.local
+*.log
+.next-dev-*.log
+tsconfig.tsbuildinfo
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/*.sqlite
