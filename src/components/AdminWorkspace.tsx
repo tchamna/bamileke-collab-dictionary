@@ -27,7 +27,23 @@ type AdminResponse = {
 
 const PAGE_SIZE = 24;
 
+const adminActionText = {
+  fr: {
+    discardLabel: 'Rejeter',
+    deleteLabel: 'Supprimer',
+    discardExplanation: "garde l'entree pour verification, la marque comme rejetee, la masque des resultats publics approuves et retire les points du contributeur.",
+    deleteExplanation: "supprime definitivement l'entree. A utiliser pour le spam, les donnees de test ou les erreurs qui ne doivent pas etre conservees.",
+  },
+  en: {
+    discardLabel: 'Discard',
+    deleteLabel: 'Delete',
+    discardExplanation: 'keeps the entry for review, marks it rejected, hides it from public approved results, and removes contributor points.',
+    deleteExplanation: 'permanently removes the entry. Use it for spam, test data, or mistakes that should not be kept.',
+  },
+};
+
 export function AdminWorkspace() {
+  const [adminText, setAdminText] = useState(adminActionText.fr);
   const [configured, setConfigured] = useState(true);
   const [googleConfigured, setGoogleConfigured] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -46,6 +62,9 @@ export function AdminWorkspace() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    const primary = navigator.languages?.[0] || navigator.language || '';
+    setAdminText(primary.toLocaleLowerCase().startsWith('en') ? adminActionText.en : adminActionText.fr);
+
     fetch('/api/admin/session', { cache: 'no-store' })
       .then((response) => response.json())
       .then((session: { configured: boolean; googleConfigured?: boolean; authenticated: boolean; email?: string }) => {
@@ -528,10 +547,10 @@ export function AdminWorkspace() {
               <div className="grid gap-4 border-t border-[#e3e3da] pt-4">
                 <div className="rounded-md border border-[#ded8c8] bg-[#fbfaf6] p-3 text-sm font-medium leading-6 text-[#555f55]">
                   <p>
-                    <span className="font-semibold text-[#7a3d2f]">Discard</span> keeps the entry for review, marks it rejected, hides it from public approved results, and removes contributor points.
+                    <span className="font-semibold text-[#7a3d2f]">{adminText.discardLabel}</span> {adminText.discardExplanation}
                   </p>
                   <p className="mt-1">
-                    <span className="font-semibold text-[#7a3d2f]">Delete</span> permanently removes the entry. Use it for spam, test data, or mistakes that should not be kept.
+                    <span className="font-semibold text-[#7a3d2f]">{adminText.deleteLabel}</span> {adminText.deleteExplanation}
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
