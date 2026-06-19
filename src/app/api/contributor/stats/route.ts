@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const parsed = emailSchema.safeParse(email);
 
   if (!parsed.success) {
-    return NextResponse.json({ contributionCount: 0, points: 0 });
+    return NextResponse.json({ contributionCount: 0, points: 0, rank: null, rankedContributorCount: 0 });
   }
 
   const stats = await getContributorStats(normalizeContributorEmail(parsed.data));

@@ -29,6 +29,8 @@ type ApiResponse = {
 type ContributorStats = {
   contributionCount: number;
   points: number;
+  rank: number | null;
+  rankedContributorCount: number;
 };
 
 type ContributorSessionResponse = ContributorStats & {
@@ -47,6 +49,7 @@ const PAGE_SIZE = 50;
 const CONTRIBUTOR_NAME_STORAGE_KEY = 'bamilekeContributorName';
 const CONTRIBUTOR_EMAIL_STORAGE_KEY = 'bamilekeContributorEmail';
 type MobileQueueMode = 'random' | 'sequential';
+const EMPTY_CONTRIBUTOR_STATS: ContributorStats = { contributionCount: 0, points: 0, rank: null, rankedContributorCount: 0 };
 
 export function ContributionWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
   const t = useUiText();
@@ -61,7 +64,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [synonyms, setSynonyms] = useState('');
   const [contributorName, setContributorName] = useState('');
   const [contributorEmail, setContributorEmail] = useState('');
-  const [contributorStats, setContributorStats] = useState<ContributorStats>({ contributionCount: 0, points: 0 });
+  const [contributorStats, setContributorStats] = useState<ContributorStats>(EMPTY_CONTRIBUTOR_STATS);
   const [isContributorSignedIn, setIsContributorSignedIn] = useState(false);
   const [googleConfigured, setGoogleConfigured] = useState(false);
   const [notes, setNotes] = useState('');
@@ -122,7 +125,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
           setContributorEmail(payload.email);
           window.sessionStorage.setItem(CONTRIBUTOR_EMAIL_STORAGE_KEY, payload.email);
         }
-        setContributorStats({ contributionCount: payload.contributionCount, points: payload.points });
+        setContributorStats(payload);
       })
       .catch(() => undefined);
   }, []);
@@ -142,7 +145,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       window.sessionStorage.setItem(CONTRIBUTOR_EMAIL_STORAGE_KEY, trimmedEmail);
     } else {
       window.sessionStorage.removeItem(CONTRIBUTOR_EMAIL_STORAGE_KEY);
-      setContributorStats({ contributionCount: 0, points: 0 });
+      setContributorStats(EMPTY_CONTRIBUTOR_STATS);
     }
 
     const timeout = window.setTimeout(() => {
@@ -620,6 +623,9 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                         <p className="mt-2 text-2xl font-semibold text-[#18221d]">{contributorStats.points} {t.points}</p>
                         <p className="text-sm font-medium text-[#62685d]">
                           {t.contributionPoints(contributorStats.contributionCount, contributorStats.points)}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[#2f6b58]">
+                          {t.contributorRank(contributorStats.rank, contributorStats.rankedContributorCount)}
                         </p>
                         {contributorExportHref ? (
                           <a

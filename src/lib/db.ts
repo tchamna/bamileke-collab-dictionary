@@ -450,23 +450,68 @@ export async function createContribution(input: {
 export async function getContributorStats(email: string) {
   await ensureSchema();
   const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedEmail) return { contributionCount: 0, points: 0 };
+  if (!normalizedEmail) return { contributionCount: 0, points: 0, rank: null, rankedContributorCount: 0 };
 
-  const result = await getPool().query<{ total: string }>(
+  const result = await getPool().query<{
+    contribution_count: string;
+    rank: string | null;
+    ranked_contributor_count: string;
+  }>(
     `
-    SELECT COUNT(*) AS total
-    FROM (
-      SELECT DISTINCT ON (word_id, language) status
+    WITH latest_contributions AS (
+      SELECT DISTINCT ON (contributor_email, word_id, language)
+        contributor_email,
+        status
       FROM contributions
-      WHERE contributor_email = $1
-      ORDER BY word_id, language, created_at DESC, id DESC
-    ) latest_contributions
-    WHERE status <> 'rejected'
+      WHERE contributor_email <> ''
+      ORDER BY contributor_email, word_id, language, created_at DESC, id DESC
+    ),
+    contributor_scores AS (
+      SELECT
+        contributor_email,
+        COUNT(*) FILTER (WHERE status <> 'rejected')::int AS contribution_count
+      FROM latest_contributions
+      GROUP BY contributor_email
+      HAVING COUNT(*) FILTER (WHERE status <> 'rejected') > 0
+    ),
+    ranked_scores AS (
+      SELECT
+        contributor_email,
+        contribution_count,
+        DENSE_RANK() OVER (ORDER BY contribution_count DESC) AS rank,
+        COUNT(*) OVER () AS ranked_contributor_count
+      FROM contributor_scores
+    )
+    SELECT
+      COALESCE(contribution_count, 0)::text AS contribution_count,
+      rank::text AS rank,
+      COALESCE(ranked_contributor_count, (SELECT COUNT(*) FROM contributor_scores), 0)::text AS ranked_contributor_count
+    FROM ranked_scores
+    WHERE contributor_email = $1
   `,
     [normalizedEmail]
   );
-  const contributionCount = Number(result.rows[0]?.total ?? 0);
-  return { contributionCount, points: contributionCount * 50 };
+  const row = result.rows[0];
+  const totalResult = row
+    ? null
+    : await getPool().query<{ total: string }>(`
+        WITH latest_contributions AS (
+          SELECT DISTINCT ON (contributor_email, word_id, language) contributor_email, status
+          FROM contributions
+          WHERE contributor_email <> ''
+          ORDER BY contributor_email, word_id, language, created_at DESC, id DESC
+        )
+        SELECT COUNT(DISTINCT contributor_email)::text AS total
+        FROM latest_contributions
+        WHERE status <> 'rejected'
+      `);
+  const contributionCount = Number(row?.contribution_count ?? 0);
+  return {
+    contributionCount,
+    points: contributionCount * 50,
+    rank: row?.rank ? Number(row.rank) : null,
+    rankedContributorCount: Number(row?.ranked_contributor_count ?? totalResult?.rows[0]?.total ?? 0),
+  };
 }
 
 export type ContributorContributionExportRow = {

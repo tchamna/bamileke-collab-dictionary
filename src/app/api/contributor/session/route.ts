@@ -4,7 +4,7 @@ import { getContributorStats } from '@/lib/db';
 
 export async function GET() {
   const session = await getContributorSession();
-  const stats = session ? await getContributorStats(session.email) : { contributionCount: 0, points: 0 };
+  const stats = session ? await getContributorStats(session.email) : { contributionCount: 0, points: 0, rank: null, rankedContributorCount: 0 };
 
   return NextResponse.json({
     authenticated: Boolean(session),
