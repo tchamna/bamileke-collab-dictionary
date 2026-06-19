@@ -56,6 +56,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<ApiResponse>({ rows: [], total: 0, limit: PAGE_SIZE, offset: 0 });
   const [selectedWordId, setSelectedWordId] = useState<number | null>(null);
+  const [randomWord, setRandomWord] = useState<WordItem | null>(null);
   const [translation, setTranslation] = useState('');
   const [synonyms, setSynonyms] = useState('');
   const [contributorName, setContributorName] = useState('');
@@ -156,8 +157,8 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   }, [contributorEmail]);
 
   const selectedWord = useMemo(
-    () => data.rows.find((word) => word.id === selectedWordId) ?? data.rows[0] ?? null,
-    [data.rows, selectedWordId]
+    () => data.rows.find((word) => word.id === selectedWordId) ?? (randomWord?.id === selectedWordId ? randomWord : null) ?? data.rows[0] ?? null,
+    [data.rows, randomWord, selectedWordId]
   );
   const selectedLanguageLabel = languages.find((item) => item.id === language)?.label ?? language;
   const selectedWordIndex = selectedWord ? data.rows.findIndex((word) => word.id === selectedWord.id) : -1;
@@ -169,6 +170,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     : '';
 
   function selectWord(word: WordItem) {
+    setRandomWord(data.rows.some((item) => item.id === word.id) ? null : word);
     setSelectedWordId(word.id);
     setTranslation(word.latestTranslation ?? '');
     setSynonyms(word.latestSynonyms ?? '');
@@ -182,6 +184,11 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   }
 
   function nextSequentialWord() {
+    if (selectedWordIndex < 0) {
+      selectWordAt(0);
+      return;
+    }
+
     if (selectedWordIndex >= 0 && selectedWordIndex < data.rows.length - 1) {
       selectWordAt(selectedWordIndex + 1);
       return;
@@ -206,9 +213,23 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     }
   }
 
+  async function fetchRandomWord() {
+    const response = await fetch(`/api/words?language=${encodeURIComponent(language)}&random=1&excludeId=${selectedWordId ?? ''}`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      nextRandomWord();
+      return;
+    }
+
+    const payload = (await response.json()) as ApiResponse;
+    const word = payload.rows[0];
+    if (word) selectWord(word);
+  }
+
   function showNextWord() {
     if (mobileQueueMode === 'random') {
-      nextRandomWord();
+      void fetchRandomWord();
     } else {
       nextSequentialWord();
     }
@@ -459,7 +480,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   <div className="min-w-0 text-center">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#74776d]">{t.wordToTranslate}</p>
                     <p className="mt-0.5 text-sm font-semibold text-[#2f6b58]">
-                      {selectedWordIndex + 1} {t.of} {data.rows.length}
+                      {mobileQueueMode === 'random' ? t.fullPool : `${offset + selectedWordIndex + 1} ${t.of} ${data.total}`}
                     </p>
                   </div>
                   <button
@@ -476,7 +497,10 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#f4f1e8] p-1">
                     <button
                       type="button"
-                      onClick={() => setMobileQueueMode('random')}
+                      onClick={() => {
+                        setMobileQueueMode('random');
+                        void fetchRandomWord();
+                      }}
                       className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
                         mobileQueueMode === 'random' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
                       }`}
@@ -486,7 +510,10 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     </button>
                     <button
                       type="button"
-                      onClick={() => setMobileQueueMode('sequential')}
+                      onClick={() => {
+                        setMobileQueueMode('sequential');
+                        nextSequentialWord();
+                      }}
                       className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
                         mobileQueueMode === 'sequential' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
                       }`}

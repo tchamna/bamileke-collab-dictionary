@@ -227,6 +227,50 @@ export async function listWords(input: { language: string; q?: string; offset?: 
   return { rows: rowsResult.rows, total: Number(countResult.rows[0]?.total ?? 0), limit, offset };
 }
 
+export async function getRandomWord(input: { language: string; excludeId?: number | null }) {
+  await ensureSchema();
+
+  const pool = getPool();
+  const countResult = await pool.query<{ total: string }>(`SELECT COUNT(*) AS total FROM predefined_words`);
+  const rowsResult = await pool.query<WordRow>(
+    `
+    SELECT
+      w.id,
+      w.french,
+      w.english,
+      w.nufi_json,
+      COALESCE(stats.contribution_count, 0)::int AS contribution_count,
+      latest.translation AS latest_translation,
+      latest.synonyms AS latest_synonyms
+    FROM predefined_words w
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS contribution_count
+      FROM contributions c
+      WHERE c.word_id = w.id
+        AND c.language = $1
+        AND c.status <> 'rejected'
+    ) stats ON true
+    LEFT JOIN LATERAL (
+      SELECT c.translation, c.synonyms
+      FROM contributions c
+      WHERE c.word_id = w.id
+        AND c.language = $1
+        AND c.status <> 'rejected'
+      ORDER BY c.created_at DESC, c.id DESC
+      LIMIT 1
+    ) latest ON true
+    WHERE ($2::int IS NULL OR w.id <> $2)
+    ORDER BY
+      CASE WHEN COALESCE(stats.contribution_count, 0) = 0 THEN 0 ELSE 1 END,
+      random()
+    LIMIT 1
+  `,
+    [input.language, input.excludeId ?? null]
+  );
+
+  return { rows: rowsResult.rows, total: Number(countResult.rows[0]?.total ?? 0), limit: 1, offset: 0 };
+}
+
 export async function listComparisonWords(input: { q?: string; offset?: number; limit?: number }) {
   await ensureSchema();
   const limit = normalizeLimit(input.limit, 20);
