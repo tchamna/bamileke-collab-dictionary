@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Award, ChevronLeft, ChevronRight, Download, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Sparkles } from 'lucide-react';
+import { Award, ChevronLeft, ChevronRight, Download, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Shuffle, SkipForward, Sparkles } from 'lucide-react';
 import { useUiText } from '@/lib/uiLocale';
 
 type LanguageOption = {
@@ -43,9 +43,10 @@ type ContributionResponse = {
   contributorStats?: ContributorStats;
 };
 
-const PAGE_SIZE = 18;
+const PAGE_SIZE = 50;
 const CONTRIBUTOR_NAME_STORAGE_KEY = 'bamilekeContributorName';
 const CONTRIBUTOR_EMAIL_STORAGE_KEY = 'bamilekeContributorEmail';
+type MobileQueueMode = 'random' | 'sequential';
 
 export function ContributionWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
   const t = useUiText();
@@ -66,6 +67,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showExistingTranslationDialog, setShowExistingTranslationDialog] = useState(false);
+  const [mobileQueueMode, setMobileQueueMode] = useState<MobileQueueMode>('random');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -80,7 +82,11 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
         setData(payload);
         setSelectedWordId((current) => {
           if (current && payload.rows.some((word) => word.id === current)) return current;
-          return payload.rows[0]?.id ?? null;
+          const nextWord = payload.rows[0] ?? null;
+          setTranslation(nextWord?.latestTranslation ?? '');
+          setSynonyms(nextWord?.latestSynonyms ?? '');
+          setNotes('');
+          return nextWord?.id ?? null;
         });
       })
       .catch((error) => {
@@ -175,6 +181,39 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     if (nextWord) selectWord(nextWord);
   }
 
+  function nextSequentialWord() {
+    if (selectedWordIndex >= 0 && selectedWordIndex < data.rows.length - 1) {
+      selectWordAt(selectedWordIndex + 1);
+      return;
+    }
+
+    if (offset + PAGE_SIZE < data.total) {
+      setOffset(offset + PAGE_SIZE);
+    }
+  }
+
+  function nextRandomWord() {
+    const untranslated = data.rows.filter((word) => word.id !== selectedWordId && word.contributionCount === 0);
+    const candidates = untranslated.length ? untranslated : data.rows.filter((word) => word.id !== selectedWordId);
+
+    if (candidates.length) {
+      selectWord(candidates[Math.floor(Math.random() * candidates.length)]);
+      return;
+    }
+
+    if (offset + PAGE_SIZE < data.total) {
+      setOffset(offset + PAGE_SIZE);
+    }
+  }
+
+  function showNextWord() {
+    if (mobileQueueMode === 'random') {
+      nextRandomWord();
+    } else {
+      nextSequentialWord();
+    }
+  }
+
   function search(event: FormEvent) {
     event.preventDefault();
     setOffset(0);
@@ -182,7 +221,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   }
 
   async function saveContribution() {
-    if (!selectedWord) return;
+    if (!selectedWord) return false;
     setIsSaving(true);
     setMessage('');
 
@@ -203,7 +242,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     setIsSaving(false);
     if (!response.ok) {
       setMessage(t.addTranslationFirst);
-      return;
+      return false;
     }
 
     const payload = (await response.json()) as ContributionResponse;
@@ -222,6 +261,8 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
           : word
       ),
     }));
+    showNextWord();
+    return true;
   }
 
   function submit(event: FormEvent) {
@@ -275,6 +316,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     onChange={(event) => {
                       setLanguage(event.target.value);
                       setOffset(0);
+                      setSelectedWordId(null);
                       setTranslation('');
                       setSynonyms('');
                     }}
@@ -428,6 +470,38 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9c0ad] text-[#2d372f] disabled:opacity-40"
                   >
                     <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="mb-4 grid gap-3 rounded-lg border border-[#e2dccc] bg-white p-3 lg:hidden">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#f4f1e8] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setMobileQueueMode('random')}
+                      className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
+                        mobileQueueMode === 'random' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
+                      }`}
+                    >
+                      <Shuffle className="h-4 w-4" />
+                      {t.random}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileQueueMode('sequential')}
+                      className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
+                        mobileQueueMode === 'sequential' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
+                      }`}
+                    >
+                      <Rows3 className="h-4 w-4" />
+                      {t.sequential}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={showNextWord}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-4 text-base font-semibold text-[#295f4e] shadow-sm"
+                  >
+                    <SkipForward className="h-5 w-5" />
+                    {t.skipWord}
                   </button>
                 </div>
                 <div className="grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
@@ -586,8 +660,16 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     href="#word-list"
                     className="inline-flex h-12 items-center justify-center rounded-lg border border-[#c9c0ad] bg-white px-5 text-base font-semibold text-[#295f4e] shadow-sm lg:hidden"
                   >
-                    {t.changeWord}
+                    {t.findWord}
                   </a>
+                  <button
+                    type="button"
+                    onClick={showNextWord}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-5 text-base font-semibold text-[#295f4e] shadow-sm lg:hidden"
+                  >
+                    <SkipForward className="h-5 w-5" />
+                    {t.skipWord}
+                  </button>
                   <button
                     type="submit"
                     disabled={isSaving}
