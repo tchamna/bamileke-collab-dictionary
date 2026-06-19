@@ -154,6 +154,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     [data.rows, selectedWordId]
   );
   const selectedLanguageLabel = languages.find((item) => item.id === language)?.label ?? language;
+  const selectedWordIndex = selectedWord ? data.rows.findIndex((word) => word.id === selectedWord.id) : -1;
   const pageEnd = Math.min(offset + data.rows.length, data.total);
   const completedOnPage = data.rows.filter((word) => word.latestTranslation).length;
   const normalizedContributorEmail = contributorEmail.trim().toLowerCase();
@@ -167,6 +168,11 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     setSynonyms(word.latestSynonyms ?? '');
     setNotes('');
     setMessage('');
+  }
+
+  function selectWordAt(index: number) {
+    const nextWord = data.rows[index];
+    if (nextWord) selectWord(nextWord);
   }
 
   function search(event: FormEvent) {
@@ -246,8 +252,8 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   <LibraryBig className="h-4 w-4 text-[#2f6b58]" />
                   {t.appName}
                 </div>
-                <h1 className="mt-4 text-4xl font-semibold tracking-normal text-[#18221d] sm:text-5xl">{t.translateFrenchList}</h1>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
+                <h1 className="mt-3 text-2xl font-semibold tracking-normal text-[#18221d] sm:mt-4 sm:text-5xl">{t.translateFrenchList}</h1>
+                <div className="mt-4 hidden flex-wrap items-center gap-3 sm:flex">
                   <a
                     href="/compare"
                     className="inline-flex h-10 items-center justify-center rounded-md border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
@@ -283,7 +289,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                 </span>
               </label>
             </div>
-            <form onSubmit={search} className="flex flex-col gap-3 rounded-xl border border-[#ddd6c5] bg-white p-2 shadow-sm sm:flex-row">
+            <form onSubmit={search} className="hidden flex-col gap-3 rounded-xl border border-[#ddd6c5] bg-white p-2 shadow-sm lg:flex lg:flex-row">
               <label className="relative flex-1">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#657263]" />
                 <input
@@ -303,11 +309,26 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(300px,420px)_1fr] lg:px-8">
-        <aside className="overflow-hidden rounded-xl border border-[#ddd6c5] bg-white shadow-sm">
+        <aside id="word-list" className="order-2 overflow-hidden rounded-xl border border-[#ddd6c5] bg-white shadow-sm lg:order-1">
           <div className="border-b border-[#e7e1d4] bg-[#fbfaf6] px-4 py-4">
+            <form onSubmit={search} className="mb-4 flex flex-col gap-2 rounded-lg border border-[#ddd6c5] bg-white p-2 shadow-sm lg:hidden">
+              <label className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#657263]" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t.searchPlaceholder}
+                  className="h-11 w-full rounded-md border border-transparent bg-[#fbfaf6] pl-10 pr-3 text-base outline-none transition focus:border-[#2f6b58] focus:bg-white focus:ring-4 focus:ring-[#2f6b58]/10"
+                />
+              </label>
+              <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#2f6b58] px-4 text-base font-semibold text-white shadow-sm">
+                <Search className="h-5 w-5" />
+                {t.search}
+              </button>
+            </form>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">Word list</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.wordList}</p>
                 <p className="mt-1 text-sm font-semibold text-[#354137]">
                   {isLoading ? t.loading : `${offset + 1}-${pageEnd} ${t.of} ${data.total}`}
                 </p>
@@ -379,14 +400,40 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
           </div>
         </aside>
 
-        <form onSubmit={submit} className="overflow-hidden rounded-xl border border-[#ddd6c5] bg-white shadow-sm">
+        <form id="translation-form" onSubmit={submit} className="order-1 overflow-hidden rounded-xl border border-[#ddd6c5] bg-white shadow-sm lg:order-2">
           {selectedWord ? (
             <>
               <div className="border-b border-[#e7e1d4] bg-[#fbfaf6] p-5 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[#e2dccc] bg-white px-3 py-2 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => selectWordAt(selectedWordIndex - 1)}
+                    disabled={selectedWordIndex <= 0}
+                    aria-label={t.previousPage}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9c0ad] text-[#2d372f] disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <div className="min-w-0 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#74776d]">{t.wordToTranslate}</p>
+                    <p className="mt-0.5 text-sm font-semibold text-[#2f6b58]">
+                      {selectedWordIndex + 1} {t.of} {data.rows.length}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => selectWordAt(selectedWordIndex + 1)}
+                    disabled={selectedWordIndex < 0 || selectedWordIndex >= data.rows.length - 1}
+                    aria-label={t.nextPage}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9c0ad] text-[#2d372f] disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
                 <div className="grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.frenchWord}</p>
-                    <p className="mt-2 max-w-3xl text-3xl font-semibold leading-tight text-[#18221d] sm:text-4xl">
+                    <p className="mt-2 max-w-3xl text-2xl font-semibold leading-tight text-[#18221d] sm:text-4xl">
                       {selectedWord.french}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -527,21 +574,29 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-[#e7e1d4] bg-[#fbfaf6] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="sticky bottom-0 z-20 flex flex-col gap-3 border-t border-[#e7e1d4] bg-[#fbfaf6]/95 px-5 py-4 shadow-[0_-8px_24px_rgba(38,34,26,0.08)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:static lg:shadow-none lg:backdrop-blur-0">
                 <div className="grid gap-1">
                   <p className="min-h-6 text-sm font-medium text-[#4d6252]">{message}</p>
                   <p className="text-sm font-semibold text-[#2f6b58]">
                     {t.contributionPoints(contributorStats.contributionCount, contributorStats.points)}
                   </p>
                 </div>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#2f6b58] px-6 text-base font-semibold text-white shadow-sm hover:bg-[#255645] disabled:opacity-60"
-                >
-                  {isSaving ? <Sparkles className="h-5 w-5" /> : <Save className="h-5 w-5" />}
-                  {isSaving ? t.saving : t.saveTranslation}
-                </button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <a
+                    href="#word-list"
+                    className="inline-flex h-12 items-center justify-center rounded-lg border border-[#c9c0ad] bg-white px-5 text-base font-semibold text-[#295f4e] shadow-sm lg:hidden"
+                  >
+                    {t.changeWord}
+                  </a>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#2f6b58] px-6 text-base font-semibold text-white shadow-sm hover:bg-[#255645] disabled:opacity-60"
+                  >
+                    {isSaving ? <Sparkles className="h-5 w-5" /> : <Save className="h-5 w-5" />}
+                    {isSaving ? t.saving : t.saveTranslation}
+                  </button>
+                </div>
               </div>
             </>
           ) : (
