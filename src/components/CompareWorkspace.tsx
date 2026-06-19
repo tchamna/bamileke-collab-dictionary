@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, Search } from 'lucide-react';
+import { customLanguageLabel, getLanguageLabel } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
 type LanguageOption = {
@@ -52,7 +53,27 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
   const [viewMode, setViewMode] = useState<CompareView>('horizontal');
   const [message, setMessage] = useState('');
 
-  const comparisonLanguages = useMemo(() => languages.filter((language) => language.id !== 'other'), [languages]);
+  const comparisonLanguages = useMemo(() => {
+    const known = languages.filter((language) => language.id !== 'other');
+    const knownIds = new Set(known.map((language) => language.id));
+    const extraIds = new Set<string>();
+
+    for (const word of data.rows) {
+      for (const contribution of word.contributions) {
+        if (!knownIds.has(contribution.language) && contribution.language !== 'other') {
+          extraIds.add(contribution.language);
+        }
+      }
+    }
+
+    return [
+      ...known,
+      ...[...extraIds].sort().map((id) => ({
+        id,
+        label: getLanguageLabel(id) === id ? customLanguageLabel(id) : getLanguageLabel(id),
+      })),
+    ];
+  }, [data.rows, languages]);
   const pageEnd = Math.min(offset + data.rows.length, data.total);
 
   useEffect(() => {

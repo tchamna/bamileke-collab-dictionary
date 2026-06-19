@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRandomWord, listWords } from '@/lib/db';
-import { LANGUAGES } from '@/lib/languages';
+import { LANGUAGES, normalizeLanguageId } from '@/lib/languages';
 
 const languageIds = new Set<string>(LANGUAGES.map((language) => language.id));
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const requestedLanguage = searchParams.get('language') || 'ghomala';
-  const language = languageIds.has(requestedLanguage) ? requestedLanguage : 'other';
+  const normalizedLanguage = normalizeLanguageId(requestedLanguage);
+  const language = languageIds.has(requestedLanguage) ? requestedLanguage : normalizedLanguage || 'other';
   const q = searchParams.get('q') || '';
   const offset = Number(searchParams.get('offset') || 0);
   const limit = Number(searchParams.get('limit') || 24);

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Award, ChevronLeft, ChevronRight, Download, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Shuffle, SkipForward, Sparkles } from 'lucide-react';
+import { customLanguageLabel, normalizeLanguageId } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
 type LanguageOption = {
@@ -54,6 +55,7 @@ const EMPTY_CONTRIBUTOR_STATS: ContributorStats = { contributionCount: 0, points
 export function ContributionWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
   const t = useUiText();
   const [language, setLanguage] = useState('ghomala');
+  const [customLanguage, setCustomLanguage] = useState('');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [offset, setOffset] = useState(0);
@@ -74,10 +76,13 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [mobileQueueMode, setMobileQueueMode] = useState<MobileQueueMode>('random');
   const [message, setMessage] = useState('');
 
+  const customLanguageId = normalizeLanguageId(customLanguage);
+  const effectiveLanguage = language === 'other' ? customLanguageId || 'other' : language;
+
   useEffect(() => {
     const controller = new AbortController();
     setIsLoading(true);
-    fetch(`/api/words?language=${encodeURIComponent(language)}&q=${encodeURIComponent(activeQuery)}&offset=${offset}&limit=${PAGE_SIZE}`, {
+    fetch(`/api/words?language=${encodeURIComponent(effectiveLanguage)}&q=${encodeURIComponent(activeQuery)}&offset=${offset}&limit=${PAGE_SIZE}`, {
       signal: controller.signal,
       cache: 'no-store',
     })
@@ -99,7 +104,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       .finally(() => setIsLoading(false));
 
     return () => controller.abort();
-  }, [language, activeQuery, offset, t.unableToLoadWords]);
+  }, [effectiveLanguage, activeQuery, offset, t.unableToLoadWords]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -163,7 +168,12 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
     () => data.rows.find((word) => word.id === selectedWordId) ?? (randomWord?.id === selectedWordId ? randomWord : null) ?? data.rows[0] ?? null,
     [data.rows, randomWord, selectedWordId]
   );
-  const selectedLanguageLabel = languages.find((item) => item.id === language)?.label ?? language;
+  const selectedLanguageLabel =
+    language === 'other'
+      ? customLanguageId
+        ? customLanguageLabel(customLanguageId)
+        : languages.find((item) => item.id === 'other')?.label ?? 'Other language'
+      : languages.find((item) => item.id === language)?.label ?? language;
   const selectedWordIndex = selectedWord ? data.rows.findIndex((word) => word.id === selectedWord.id) : -1;
   const pageEnd = Math.min(offset + data.rows.length, data.total);
   const completedOnPage = data.rows.filter((word) => word.latestTranslation).length;
@@ -217,7 +227,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   }
 
   async function fetchRandomWord() {
-    const response = await fetch(`/api/words?language=${encodeURIComponent(language)}&random=1&excludeId=${selectedWordId ?? ''}`, {
+    const response = await fetch(`/api/words?language=${encodeURIComponent(effectiveLanguage)}&random=1&excludeId=${selectedWordId ?? ''}`, {
       cache: 'no-store',
     });
     if (!response.ok) {
@@ -254,7 +264,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         wordId: selectedWord.id,
-        language,
+        language: effectiveLanguage,
         translation,
         synonyms,
         contributorName,
@@ -359,6 +369,19 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     ))}
                   </select>
                 </span>
+                {language === 'other' ? (
+                  <input
+                    value={customLanguage}
+                    onChange={(event) => {
+                      setCustomLanguage(event.target.value);
+                      setOffset(0);
+                      setSelectedWordId(null);
+                    }}
+                    className="h-12 rounded-lg border border-[#c4bba8] bg-white px-4 text-base font-semibold text-[#20231f] shadow-sm outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10"
+                    placeholder={t.customLanguagePlaceholder}
+                    aria-label={t.customLanguageName}
+                  />
+                ) : null}
               </label>
             </div>
             <form onSubmit={search} className="hidden flex-col gap-3 rounded-xl border border-[#ddd6c5] bg-white p-2 shadow-sm lg:flex lg:flex-row">

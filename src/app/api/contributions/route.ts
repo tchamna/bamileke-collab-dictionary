@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getContributorSession, normalizeContributorEmail } from '@/lib/contributorAuth';
 import { createContribution, getContributorStats, getWord } from '@/lib/db';
-import { LANGUAGES } from '@/lib/languages';
+import { LANGUAGES, normalizeLanguageId } from '@/lib/languages';
 
 const languageIds = new Set<string>(LANGUAGES.map((language) => language.id));
 
@@ -34,10 +34,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Word not found.' }, { status: 404 });
   }
 
-  const language = languageIds.has(parsed.data.language) ? parsed.data.language : 'other';
+  const normalizedLanguage = normalizeLanguageId(parsed.data.language);
+  const language = languageIds.has(parsed.data.language) ? parsed.data.language : normalizedLanguage || 'other';
   const contributorSession = await getContributorSession();
   const contributorEmail = normalizeContributorEmail(contributorSession?.email || parsed.data.contributorEmail || '');
   const id = await createContribution({ ...parsed.data, language, contributorEmail });
-  const contributorStats = contributorEmail ? await getContributorStats(contributorEmail) : { contributionCount: 0, points: 0 };
+  const contributorStats = contributorEmail ? await getContributorStats(contributorEmail) : { contributionCount: 0, points: 0, rank: null, rankedContributorCount: 0 };
   return NextResponse.json({ ok: true, id, contributorStats });
 }
