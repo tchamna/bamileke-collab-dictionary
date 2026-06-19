@@ -514,6 +514,91 @@ export async function getContributorStats(email: string) {
   };
 }
 
+export type ContributorLeaderboardRow = {
+  contributor_email: string;
+  contributor_name: string;
+  contribution_count: number;
+  approved_count: number;
+  pending_count: number;
+  language_count: number;
+  languages: string[];
+  latest_contribution_at: Date;
+  rank: number;
+  ranked_contributor_count: number;
+};
+
+export async function listContributorLeaderboard(limit = 100) {
+  await ensureSchema();
+
+  const result = await getPool().query<ContributorLeaderboardRow>(
+    `
+    WITH latest_contributions AS (
+      SELECT DISTINCT ON (contributor_email, word_id, language)
+        contributor_email,
+        language,
+        status,
+        created_at,
+        id
+      FROM contributions
+      WHERE contributor_email <> ''
+      ORDER BY contributor_email, word_id, language, created_at DESC, id DESC
+    ),
+    valid_contributions AS (
+      SELECT *
+      FROM latest_contributions
+      WHERE status <> 'rejected'
+    ),
+    latest_names AS (
+      SELECT DISTINCT ON (contributor_email)
+        contributor_email,
+        contributor_name
+      FROM contributions
+      WHERE contributor_email <> ''
+        AND contributor_name <> ''
+      ORDER BY contributor_email, created_at DESC, id DESC
+    ),
+    contributor_scores AS (
+      SELECT
+        valid_contributions.contributor_email,
+        COALESCE(latest_names.contributor_name, '') AS contributor_name,
+        COUNT(*)::int AS contribution_count,
+        COUNT(*) FILTER (WHERE valid_contributions.status = 'approved')::int AS approved_count,
+        COUNT(*) FILTER (WHERE valid_contributions.status = 'pending')::int AS pending_count,
+        COUNT(DISTINCT valid_contributions.language)::int AS language_count,
+        ARRAY_AGG(DISTINCT valid_contributions.language ORDER BY valid_contributions.language) AS languages,
+        MAX(valid_contributions.created_at) AS latest_contribution_at
+      FROM valid_contributions
+      LEFT JOIN latest_names ON latest_names.contributor_email = valid_contributions.contributor_email
+      GROUP BY valid_contributions.contributor_email, latest_names.contributor_name
+    ),
+    ranked_scores AS (
+      SELECT
+        *,
+        DENSE_RANK() OVER (ORDER BY contribution_count DESC) AS rank,
+        COUNT(*) OVER () AS ranked_contributor_count
+      FROM contributor_scores
+    )
+    SELECT
+      contributor_email,
+      contributor_name,
+      contribution_count,
+      approved_count,
+      pending_count,
+      language_count,
+      languages,
+      latest_contribution_at,
+      rank::int,
+      ranked_contributor_count::int
+    FROM ranked_scores
+    ORDER BY rank ASC, latest_contribution_at DESC, contributor_email ASC
+    LIMIT $1
+  `,
+    [Math.max(1, Math.min(limit, 250))]
+  );
+
+  return result.rows;
+}
+
 export type ContributorContributionExportRow = {
   created_at: Date;
   status: string;

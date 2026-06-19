@@ -325,6 +325,12 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   >
                     {t.comparisonPage}
                   </a>
+                  <a
+                    href="/leaderboard"
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
+                  >
+                    {t.leaderboardPage}
+                  </a>
                   <span className="inline-flex h-10 items-center gap-2 rounded-md bg-[#e8efe8] px-4 text-sm font-semibold text-[#344f40]">
                     <Rows3 className="h-4 w-4" />
                     {data.total || 490} words
