@@ -143,6 +143,9 @@ export async function ensureSchema() {
         ON predefined_words (import_key)
         WHERE import_key IS NOT NULL;
 
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_predefined_words_french_unique
+        ON predefined_words (lower(french));
+
       CREATE INDEX IF NOT EXISTS idx_contributions_word_language
         ON contributions (word_id, language, created_at DESC);
 

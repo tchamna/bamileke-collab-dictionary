@@ -47,6 +47,8 @@ const client = await pool.connect();
 const stats = {
   workbookRows: workbookRows.length,
   readyRecords: records.length,
+  mergedWorkbookRows: workbookRows.length - records.length,
+  mergedDatabaseRows: 0,
   inserted: 0,
   updated: 0,
   unchanged: 0,
@@ -55,6 +57,8 @@ const stats = {
 
 try {
   await client.query('BEGIN');
+  stats.mergedDatabaseRows = await mergeExistingDuplicateFrenchRows(client);
+  if (!dryRun) await ensureUniqueFrenchIndex(client);
 
   const existingRows = (
     await client.query(`
@@ -212,6 +216,13 @@ async function ensureSchema() {
   `);
 }
 
+async function ensureUniqueFrenchIndex(client) {
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_predefined_words_french_unique
+      ON predefined_words (lower(french));
+  `);
+}
+
 function buildImportRecords(rows) {
   const baseRecords = rows
     .map((row, index) => {
@@ -235,7 +246,98 @@ function buildImportRecords(rows) {
     })
     .filter(Boolean);
 
-  return assignImportKeys(baseRecords);
+  return assignImportKeys(mergeDuplicateFrenchRecords(baseRecords));
+}
+
+function mergeDuplicateFrenchRecords(records) {
+  const groupedRecords = new Map();
+  for (const record of records) {
+    const frenchKey = normalizeForKey(record.french);
+    const current = groupedRecords.get(frenchKey);
+    if (!current) {
+      groupedRecords.set(frenchKey, { ...record, nufiValues: uniqueValues(record.nufiValues) });
+      continue;
+    }
+
+    const mergedNufiValues = uniqueValues([...current.nufiValues, ...record.nufiValues]);
+    groupedRecords.set(frenchKey, {
+      ...current,
+      english: current.english || record.english,
+      nufiValues: mergedNufiValues,
+      searchText: [current.french, current.english || record.english, ...mergedNufiValues].join(' ').toLocaleLowerCase(),
+      sourceRow: Math.min(current.sourceRow, record.sourceRow),
+    });
+  }
+
+  return [...groupedRecords.values()].sort((left, right) => left.sourceRow - right.sourceRow);
+}
+
+async function mergeExistingDuplicateFrenchRows(client) {
+  const existingRows = (
+    await client.query(`
+      SELECT id, french, english, nufi_json, source_row
+      FROM predefined_words
+      ORDER BY source_row ASC, id ASC
+    `)
+  ).rows.map((row) => ({
+    ...row,
+    nufi_json: Array.isArray(row.nufi_json) ? row.nufi_json : [],
+  }));
+
+  const groupedRows = new Map();
+  for (const row of existingRows) {
+    const frenchKey = normalizeForKey(row.french);
+    const bucket = groupedRows.get(frenchKey) ?? [];
+    bucket.push(row);
+    groupedRows.set(frenchKey, bucket);
+  }
+
+  let mergedRows = 0;
+  for (const rows of groupedRows.values()) {
+    if (rows.length < 2) continue;
+
+    const [survivor, ...duplicates] = rows;
+    const duplicateIds = duplicates.map((row) => row.id);
+    const mergedNufiValues = uniqueValues(rows.flatMap((row) => row.nufi_json));
+    const english = rows.find((row) => row.english)?.english ?? '';
+    const sourceRow = Math.min(...rows.map((row) => row.source_row));
+    const searchText = [survivor.french, english, ...mergedNufiValues].join(' ').toLocaleLowerCase();
+    const importKey = `${buildNaturalKey({ french: survivor.french, nufiValues: mergedNufiValues })}#1`;
+
+    if (!dryRun) {
+      await client.query(`UPDATE contributions SET word_id = $1 WHERE word_id = ANY($2::int[])`, [survivor.id, duplicateIds]);
+      await client.query(`DELETE FROM predefined_words WHERE id = ANY($1::int[])`, [duplicateIds]);
+      await client.query(
+        `
+        UPDATE predefined_words
+        SET english = $2,
+            nufi_json = $3::jsonb,
+            search_text = $4,
+            source_row = $5,
+            import_key = $6,
+            updated_at = now()
+        WHERE id = $1
+      `,
+        [survivor.id, english, JSON.stringify(mergedNufiValues), searchText, sourceRow, importKey]
+      );
+    }
+
+    mergedRows += duplicateIds.length;
+  }
+
+  return mergedRows;
+}
+
+function uniqueValues(values) {
+  const seen = new Set();
+  const unique = [];
+  for (const value of values) {
+    const normalizedValue = normalizeForKey(value);
+    if (!normalizedValue || seen.has(normalizedValue)) continue;
+    seen.add(normalizedValue);
+    unique.push(value);
+  }
+  return unique;
 }
 
 function assignImportKeys(rows) {
@@ -265,8 +367,7 @@ function findExistingRecord(record, existingByImportKey, existingByComputedKey, 
 }
 
 function buildNaturalKey(row) {
-  const nufiPart = row.nufiValues ? row.nufiValues.join('|') : row.nufi_json.join('|');
-  const raw = `${normalizeForKey(row.french)}|${normalizeForKey(nufiPart)}`;
+  const raw = normalizeForKey(row.french);
   return crypto.createHash('sha1').update(raw).digest('hex');
 }
 
