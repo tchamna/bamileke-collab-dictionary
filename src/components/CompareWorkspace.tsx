@@ -56,23 +56,41 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
   const comparisonLanguages = useMemo(() => {
     const known = languages.filter((language) => language.id !== 'other');
     const knownIds = new Set(known.map((language) => language.id));
+    const baseOrder = new Map(known.map((language, index) => [language.id, index]));
+    const contributionCounts = new Map<string, number>();
     const extraIds = new Set<string>();
 
     for (const word of data.rows) {
       for (const contribution of word.contributions) {
+        contributionCounts.set(contribution.language, (contributionCounts.get(contribution.language) ?? 0) + 1);
         if (!knownIds.has(contribution.language) && contribution.language !== 'other') {
           extraIds.add(contribution.language);
         }
       }
     }
 
-    return [
+    const allLanguages = [
       ...known,
       ...[...extraIds].sort().map((id) => ({
         id,
         label: getLanguageLabel(id) === id ? customLanguageLabel(id) : getLanguageLabel(id),
       })),
     ];
+
+    return allLanguages.sort((left, right) => {
+      const leftCount = contributionCounts.get(left.id) ?? 0;
+      const rightCount = contributionCounts.get(right.id) ?? 0;
+      if (leftCount && !rightCount) return -1;
+      if (!leftCount && rightCount) return 1;
+      if (leftCount !== rightCount) return rightCount - leftCount;
+
+      const leftOrder = baseOrder.get(left.id);
+      const rightOrder = baseOrder.get(right.id);
+      if (leftOrder !== undefined && rightOrder !== undefined) return leftOrder - rightOrder;
+      if (leftOrder !== undefined) return -1;
+      if (rightOrder !== undefined) return 1;
+      return left.label.localeCompare(right.label);
+    });
   }, [data.rows, languages]);
   const pageEnd = Math.min(offset + data.rows.length, data.total);
 
