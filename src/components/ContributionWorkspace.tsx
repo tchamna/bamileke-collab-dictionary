@@ -584,21 +584,33 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                 </label>
                 <div className="rounded-xl border border-[#e2dccc] bg-[#fbfaf6] p-4">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <label className="grid flex-1 gap-2">
-                      <span className="flex items-center gap-2 text-base font-semibold text-[#30352f]">
-                        <Mail className="h-4 w-4 text-[#2f6b58]" />
-                        {t.contributorEmail}
-                      </span>
-                      <input
-                        type="email"
-                        value={contributorEmail}
-                        onChange={(event) => setContributorEmail(event.target.value)}
-                        disabled={isContributorSignedIn}
-                        className="h-12 rounded-lg border border-[#c4bba8] px-4 text-base outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10 disabled:bg-[#ede8dc] disabled:text-[#62685d]"
-                        placeholder="name@example.com"
-                      />
-                      <span className="text-sm font-medium text-[#62685d]">{t.contributorEmailHint}</span>
-                    </label>
+                    <div className="grid flex-1 gap-4 md:grid-cols-2">
+                      <label className="grid gap-2">
+                        <span className="flex items-center gap-2 text-base font-semibold text-[#30352f]">
+                          <Mail className="h-4 w-4 text-[#2f6b58]" />
+                          {t.contributorEmail}
+                        </span>
+                        <input
+                          type="email"
+                          value={contributorEmail}
+                          onChange={(event) => setContributorEmail(event.target.value)}
+                          disabled={isContributorSignedIn}
+                          className="h-12 rounded-lg border border-[#c4bba8] px-4 text-base outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10 disabled:bg-[#ede8dc] disabled:text-[#62685d]"
+                          placeholder="name@example.com"
+                        />
+                        <span className="text-sm font-medium text-[#62685d]">{t.contributorEmailHint}</span>
+                      </label>
+                      <label className="grid gap-2">
+                        <span className="text-base font-semibold text-[#30352f]">{t.yourName}</span>
+                        <input
+                          value={contributorName}
+                          onChange={(event) => setContributorName(event.target.value)}
+                          className="h-12 rounded-lg border border-[#c4bba8] px-4 text-base outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10"
+                          placeholder={t.optional}
+                        />
+                        <span className="text-sm font-medium text-[#62685d]">{t.contributorNameSessionHint}</span>
+                      </label>
+                    </div>
                     <div className="grid gap-3 sm:min-w-72">
                       <div className="rounded-lg border border-[#d6cfbf] bg-white p-3">
                         <span className="flex items-center gap-2 text-sm font-semibold text-[#2f6b58]">
@@ -652,17 +664,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     </div>
                   </div>
                 </div>
-                <div className="grid gap-5 md:grid-cols-2">
-                  <label className="grid gap-2">
-                    <span className="text-base font-semibold text-[#30352f]">{t.yourName}</span>
-                    <input
-                      value={contributorName}
-                      onChange={(event) => setContributorName(event.target.value)}
-                      className="h-12 rounded-lg border border-[#c4bba8] px-4 text-base outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10"
-                      placeholder={t.optional}
-                    />
-                    <span className="text-sm font-medium text-[#62685d]">{t.contributorNameSessionHint}</span>
-                  </label>
+                <div className="grid gap-5">
                   <label className="grid gap-2">
                     <span className="text-base font-semibold text-[#30352f]">{t.notes}</span>
                     <input
