@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         translation: contribution.translation,
         synonyms: contribution.synonyms,
         contributorName: contribution.contributor_name,
+        contributorEmail: contribution.contributor_email,
         notes: contribution.notes,
         status: contribution.status,
         createdAt: contribution.created_at,

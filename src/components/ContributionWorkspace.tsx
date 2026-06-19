@@ -389,7 +389,13 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     <p className="mt-2 max-w-3xl text-3xl font-semibold leading-tight text-[#18221d] sm:text-4xl">
                       {selectedWord.french}
                     </p>
-                    {selectedWord.english ? <p className="mt-3 text-base font-medium text-[#62685d]">{t.english}: {selectedWord.english}</p> : null}
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      {selectedWord.english ? <p className="text-base font-medium text-[#62685d]">{t.english}: {selectedWord.english}</p> : null}
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#d6cfbf] bg-white px-3 py-1.5 text-sm font-semibold text-[#2f6b58] shadow-sm">
+                        <Award className="h-4 w-4" />
+                        {contributorStats.points} {t.points}
+                      </span>
+                    </div>
                   </div>
                   <div className="rounded-xl border border-[#e2dccc] bg-white p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.nufiReference}</p>
@@ -522,7 +528,12 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
               </div>
 
               <div className="flex flex-col gap-3 border-t border-[#e7e1d4] bg-[#fbfaf6] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <p className="min-h-6 text-sm font-medium text-[#4d6252]">{message}</p>
+                <div className="grid gap-1">
+                  <p className="min-h-6 text-sm font-medium text-[#4d6252]">{message}</p>
+                  <p className="text-sm font-semibold text-[#2f6b58]">
+                    {t.contributionPoints(contributorStats.contributionCount, contributorStats.points)}
+                  </p>
+                </div>
                 <button
                   type="submit"
                   disabled={isSaving}

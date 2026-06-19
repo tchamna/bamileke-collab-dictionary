@@ -15,6 +15,7 @@ type ComparisonContribution = {
   translation: string;
   synonyms: string;
   contributorName: string;
+  contributorEmail: string;
   notes: string;
   status: string;
   createdAt: number;
@@ -93,6 +94,18 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     return word.contributions.find((item) => item.language === languageId);
   }
 
+  function contributionsForLanguage(word: ComparisonWord, languageId: string) {
+    return word.contributions.filter((item) => item.language === languageId);
+  }
+
+  function contributorNamesForLanguage(word: ComparisonWord, languageId: string) {
+    const names = contributionsForLanguage(word, languageId)
+      .map((item) => item.contributorName.trim() || item.contributorEmail.trim())
+      .filter(Boolean);
+
+    return [...new Set(names)].join(', ') || '-';
+  }
+
   function renderLanguageCell(word: ComparisonWord, language: LanguageOption) {
     if (language.id === 'nufi') {
       return (
@@ -118,7 +131,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
         </div>
         {contribution.synonyms ? <p className="text-xs leading-snug text-[#62685d]">{contribution.synonyms}</p> : null}
         {showContributors ? (
-          <p className="text-xs font-medium text-[#7a7f73]">{contribution.contributorName || '-'}</p>
+          <p className="text-xs font-medium text-[#7a7f73]">{contributorNamesForLanguage(word, language.id)}</p>
         ) : null}
       </div>
     );
@@ -311,7 +324,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                               {language.id === 'nufi'
                                 ? t.nufiImportReference
                                 : showContributors
-                                  ? contribution?.contributorName || '-'
+                                  ? contributorNamesForLanguage(word, language.id)
                                   : contribution?.notes || '-'}
                             </td>
                           </tr>
