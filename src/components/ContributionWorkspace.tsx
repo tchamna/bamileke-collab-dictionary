@@ -683,6 +683,14 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#2f6b58] px-6 text-base font-semibold text-white shadow-sm hover:bg-[#255645] disabled:opacity-60"
+                  >
+                    {isSaving ? <Sparkles className="h-5 w-5" /> : <Save className="h-5 w-5" />}
+                    {isSaving ? t.saving : t.saveTranslation}
+                  </button>
                   <a
                     href="#word-list"
                     className="inline-flex h-12 items-center justify-center rounded-lg border border-[#c9c0ad] bg-white px-5 text-base font-semibold text-[#295f4e] shadow-sm lg:hidden"
@@ -696,14 +704,6 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   >
                     <SkipForward className="h-5 w-5" />
                     {t.skipWord}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#2f6b58] px-6 text-base font-semibold text-white shadow-sm hover:bg-[#255645] disabled:opacity-60"
-                  >
-                    {isSaving ? <Sparkles className="h-5 w-5" /> : <Save className="h-5 w-5" />}
-                    {isSaving ? t.saving : t.saveTranslation}
                   </button>
                 </div>
               </div>
