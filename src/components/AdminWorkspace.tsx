@@ -212,7 +212,7 @@ export function AdminWorkspace() {
       ...current,
       rows: current.rows.map((item) =>
         item.wordId === row.wordId
-          ? { ...item, contributionId: null, translation: '', synonyms: '', contributorName: '', notes: '', status: 'approved' }
+          ? { ...item, contributionId: null, translation: '', synonyms: '', contributorName: '', notes: '', status: 'pending' }
           : item
       ),
     }));

@@ -120,11 +120,12 @@ export async function ensureSchema() {
         contributor_name TEXT NOT NULL DEFAULT '',
         contributor_email TEXT NOT NULL DEFAULT '',
         notes            TEXT NOT NULL DEFAULT '',
-        status           TEXT NOT NULL DEFAULT 'approved',
+        status           TEXT NOT NULL DEFAULT 'pending',
         created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
       );
 
       ALTER TABLE contributions ADD COLUMN IF NOT EXISTS contributor_email TEXT NOT NULL DEFAULT '';
+      ALTER TABLE contributions ALTER COLUMN status SET DEFAULT 'pending';
 
       CREATE TABLE IF NOT EXISTS admin_users (
         email              TEXT PRIMARY KEY,
@@ -344,7 +345,7 @@ export async function createContribution(input: {
             synonyms = $3,
             contributor_name = $4,
             notes = $5,
-            status = 'approved',
+            status = 'pending',
             created_at = now()
         WHERE id = $1
         RETURNING id
@@ -364,8 +365,8 @@ export async function createContribution(input: {
 
   const result = await getPool().query<{ id: number }>(
     `
-    INSERT INTO contributions (word_id, language, translation, synonyms, contributor_name, contributor_email, notes)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO contributions (word_id, language, translation, synonyms, contributor_name, contributor_email, notes, status)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
     RETURNING id
   `,
     [

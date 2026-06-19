@@ -187,9 +187,11 @@ async function ensureSchema() {
       synonyms         TEXT NOT NULL DEFAULT '',
       contributor_name TEXT NOT NULL DEFAULT '',
       notes            TEXT NOT NULL DEFAULT '',
-      status           TEXT NOT NULL DEFAULT 'approved',
+      status           TEXT NOT NULL DEFAULT 'pending',
       created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    ALTER TABLE contributions ALTER COLUMN status SET DEFAULT 'pending';
 
     CREATE TABLE IF NOT EXISTS admin_users (
       email               TEXT PRIMARY KEY,

@@ -11,7 +11,7 @@ const saveSchema = z.object({
   synonyms: z.string().trim().max(1200).default(''),
   contributorName: z.string().trim().max(120).default(''),
   notes: z.string().trim().max(1200).default(''),
-  status: z.enum(['approved', 'pending', 'rejected']).default('approved'),
+  status: z.enum(['approved', 'pending', 'rejected']).default('pending'),
 });
 
 export async function GET(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       synonyms: row.synonyms ?? '',
       contributorName: row.contributor_name ?? '',
       notes: row.notes ?? '',
-      status: row.status ?? 'approved',
+      status: row.status ?? 'pending',
       createdAt: row.created_at,
     })),
   });

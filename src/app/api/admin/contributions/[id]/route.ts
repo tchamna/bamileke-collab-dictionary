@@ -9,7 +9,7 @@ const updateSchema = z.object({
   synonyms: z.string().trim().max(1200).default(''),
   contributorName: z.string().trim().max(120).default(''),
   notes: z.string().trim().max(1200).default(''),
-  status: z.enum(['approved', 'pending', 'rejected']).default('approved'),
+  status: z.enum(['approved', 'pending', 'rejected']).default('pending'),
 });
 
 type RouteContext = {
@@ -56,4 +56,3 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   return NextResponse.json({ ok: true });
 }
-
