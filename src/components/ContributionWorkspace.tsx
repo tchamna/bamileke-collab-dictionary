@@ -344,29 +344,33 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
               </div>
             </div>
           </div>
-          <div className="max-h-[calc(100vh-310px)] overflow-auto p-3">
+          <div className="grid gap-2 p-3">
             {data.rows.map((word) => (
               <button
                 key={word.id}
                 type="button"
                 onClick={() => selectWord(word)}
-                className={`mb-3 block w-full rounded-lg border p-4 text-left transition ${
+                className={`block w-full rounded-lg border px-3 py-2.5 text-left transition ${
                   selectedWord?.id === word.id
                     ? 'border-[#2f6b58] bg-[#eef6f0] shadow-sm ring-4 ring-[#2f6b58]/10'
                     : 'border-[#e4dfd2] bg-white hover:border-[#b7aa94] hover:bg-[#fbfaf6]'
                 }`}
               >
-                <span className="flex items-start justify-between gap-3">
-                  <span>
-                    <span className="block text-xl font-semibold text-[#1d241f]">{word.french}</span>
-                    <span className="mt-1 block text-sm font-medium text-[#646a60]">{word.nufi.slice(0, 3).join(' / ') || t.noNufiEntry}</span>
+                <span className="grid grid-cols-[1fr_auto] items-start gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-semibold leading-tight text-[#1d241f]" title={word.french}>
+                      {word.french}
+                    </span>
+                    <span className="mt-1 block truncate text-sm font-medium leading-tight text-[#646a60]" title={word.nufi.join(' / ')}>
+                      {word.nufi.slice(0, 3).join(' / ') || t.noNufiEntry}
+                    </span>
                   </span>
                   {word.contributionCount ? (
                     <span className="rounded-full bg-[#e8efe8] px-2.5 py-1 text-xs font-semibold text-[#2f6b58]">{word.contributionCount}</span>
                   ) : null}
                 </span>
                 {word.latestTranslation ? (
-                  <span className="mt-3 block rounded-md bg-white/80 px-3 py-2 text-sm font-medium text-[#344437]">
+                  <span className="mt-2 block truncate rounded-md bg-white/80 px-2 py-1.5 text-sm font-medium text-[#344437]" title={`${selectedLanguageLabel}: ${word.latestTranslation}`}>
                     {selectedLanguageLabel}: {word.latestTranslation}
                   </span>
                 ) : null}
