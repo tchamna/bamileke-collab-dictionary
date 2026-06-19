@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         synonyms: contribution.synonyms,
         contributorName: contribution.contributor_name,
         notes: contribution.notes,
+        status: contribution.status,
         createdAt: contribution.created_at,
       })),
     })),

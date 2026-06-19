@@ -28,6 +28,7 @@ export type WordComparisonContribution = {
   contributor_name: string;
   contributor_email: string;
   notes: string;
+  status: string;
   created_at: Date;
 };
 
@@ -228,7 +229,23 @@ export async function listComparisonWords(input: { q?: string; offset?: number; 
   const limit = normalizeLimit(input.limit, 20);
   const offset = normalizeOffset(input.offset);
   const q = input.q?.trim().toLocaleLowerCase() ?? '';
-  const where = q ? `AND w.search_text ILIKE $1` : '';
+  const where = q
+    ? `AND (
+        w.search_text ILIKE $1
+        OR EXISTS (
+          SELECT 1
+          FROM contributions search_c
+          WHERE search_c.word_id = w.id
+            AND search_c.status <> 'rejected'
+            AND (
+              search_c.language ILIKE $1
+              OR search_c.translation ILIKE $1
+              OR search_c.synonyms ILIKE $1
+              OR search_c.contributor_name ILIKE $1
+            )
+        )
+      )`
+    : '';
   const searchParams = q ? [`%${q}%`] : [];
 
   const pool = getPool();
@@ -239,7 +256,7 @@ export async function listComparisonWords(input: { q?: string; offset?: number; 
     WHERE EXISTS (
       SELECT 1
       FROM contributions c
-      WHERE c.word_id = w.id AND c.status = 'approved'
+      WHERE c.word_id = w.id AND c.status <> 'rejected'
     )
     ${where}
   `,
@@ -256,7 +273,7 @@ export async function listComparisonWords(input: { q?: string; offset?: number; 
       COUNT(c.id)::int AS contribution_count,
       COUNT(DISTINCT c.language)::int AS language_count
     FROM predefined_words w
-    INNER JOIN contributions c ON c.word_id = w.id AND c.status = 'approved'
+    INNER JOIN contributions c ON c.word_id = w.id AND c.status <> 'rejected'
     WHERE 1 = 1
       ${where}
     GROUP BY w.id
@@ -272,10 +289,10 @@ export async function listComparisonWords(input: { q?: string; offset?: number; 
       ? (
           await pool.query<WordComparisonContribution>(
             `
-            SELECT id, word_id, language, translation, synonyms, contributor_name, contributor_email, notes, created_at
+            SELECT id, word_id, language, translation, synonyms, contributor_name, contributor_email, notes, status, created_at
             FROM contributions
             WHERE word_id = ANY($1::int[])
-              AND status = 'approved'
+              AND status <> 'rejected'
             ORDER BY word_id ASC, language ASC, created_at DESC, id DESC
           `,
             [wordIds]

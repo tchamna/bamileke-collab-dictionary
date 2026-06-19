@@ -16,6 +16,7 @@ type ComparisonContribution = {
   synonyms: string;
   contributorName: string;
   notes: string;
+  status: string;
   createdAt: number;
 };
 
@@ -107,7 +108,14 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
 
     return (
       <div className="grid gap-1">
-        <p className="text-base font-semibold leading-snug text-[#20231f]">{contribution.translation}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-base font-semibold leading-snug text-[#20231f]">{contribution.translation}</p>
+          {contribution.status === 'pending' ? (
+            <span className="rounded-full border border-[#d7b867] bg-[#fff8df] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#7a5a09]">
+              {t.pending}
+            </span>
+          ) : null}
+        </div>
         {contribution.synonyms ? <p className="text-xs leading-snug text-[#62685d]">{contribution.synonyms}</p> : null}
         {showContributors ? (
           <p className="text-xs font-medium text-[#7a7f73]">{contribution.contributorName || '-'}</p>
