@@ -397,7 +397,7 @@ export async function getContributorStats(email: string) {
       WHERE contributor_email = $1
       ORDER BY word_id, language, created_at DESC, id DESC
     ) latest_contributions
-    WHERE status = 'approved'
+    WHERE status <> 'rejected'
   `,
     [normalizedEmail]
   );
