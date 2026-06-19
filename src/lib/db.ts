@@ -210,7 +210,7 @@ export async function listWords(input: { language: string; q?: string; offset?: 
       ) AS latest_synonyms
     FROM predefined_words w
     ${where}
-    ORDER BY w.id ASC
+    ORDER BY w.source_row ASC, w.id ASC
     LIMIT ${limitParam} OFFSET ${offsetParam}
   `,
     params
@@ -565,6 +565,7 @@ export async function listAdminWords(input: { language: string; q?: string; offs
       ${searchWhere}
     ORDER BY
       CASE WHEN c.id IS NULL THEN 1 ELSE 0 END,
+      w.source_row ASC,
       w.id ASC
     LIMIT ${limitParam} OFFSET ${offsetParam}
   `,
