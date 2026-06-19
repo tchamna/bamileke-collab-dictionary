@@ -194,28 +194,31 @@ export async function listWords(input: { language: string; q?: string; offset?: 
       w.french,
       w.english,
       w.nufi_json,
-      (
-        SELECT COUNT(*)::int
-        FROM contributions c
-        WHERE c.word_id = w.id AND c.language = $1 AND c.status = 'approved'
-      ) AS contribution_count,
-      (
-        SELECT c.translation
-        FROM contributions c
-        WHERE c.word_id = w.id AND c.language = $1 AND c.status = 'approved'
-        ORDER BY c.created_at DESC, c.id DESC
-        LIMIT 1
-      ) AS latest_translation,
-      (
-        SELECT c.synonyms
-        FROM contributions c
-        WHERE c.word_id = w.id AND c.language = $1 AND c.status = 'approved'
-        ORDER BY c.created_at DESC, c.id DESC
-        LIMIT 1
-      ) AS latest_synonyms
+      COALESCE(stats.contribution_count, 0)::int AS contribution_count,
+      latest.translation AS latest_translation,
+      latest.synonyms AS latest_synonyms
     FROM predefined_words w
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS contribution_count
+      FROM contributions c
+      WHERE c.word_id = w.id
+        AND c.language = $1
+        AND c.status <> 'rejected'
+    ) stats ON true
+    LEFT JOIN LATERAL (
+      SELECT c.translation, c.synonyms
+      FROM contributions c
+      WHERE c.word_id = w.id
+        AND c.language = $1
+        AND c.status <> 'rejected'
+      ORDER BY c.created_at DESC, c.id DESC
+      LIMIT 1
+    ) latest ON true
     ${where}
-    ORDER BY w.source_row ASC, w.id ASC
+    ORDER BY
+      CASE WHEN COALESCE(stats.contribution_count, 0) = 0 THEN 0 ELSE 1 END,
+      w.source_row ASC,
+      w.id ASC
     LIMIT ${limitParam} OFFSET ${offsetParam}
   `,
     params
