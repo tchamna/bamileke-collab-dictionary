@@ -18,7 +18,7 @@ type ComparisonContribution = {
   contributorEmail: string;
   notes: string;
   status: string;
-  createdAt: number;
+  createdAt: string;
 };
 
 type ComparisonWord = {
@@ -90,8 +90,28 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     setActiveQuery(query.trim());
   }
 
-  function latestContributionFor(word: ComparisonWord, languageId: string) {
-    return word.contributions.find((item) => item.language === languageId);
+  function contributionTime(contribution: ComparisonContribution | undefined) {
+    return contribution ? new Date(contribution.createdAt).getTime() : 0;
+  }
+
+  function latestApprovedForLanguage(word: ComparisonWord, languageId: string) {
+    return word.contributions.find((item) => item.language === languageId && item.status === 'approved');
+  }
+
+  function latestPendingForLanguage(word: ComparisonWord, languageId: string) {
+    return word.contributions.find((item) => item.language === languageId && item.status === 'pending');
+  }
+
+  function displayContributionFor(word: ComparisonWord, languageId: string) {
+    return latestApprovedForLanguage(word, languageId) ?? latestPendingForLanguage(word, languageId);
+  }
+
+  function pendingCorrectionFor(word: ComparisonWord, languageId: string) {
+    const approved = latestApprovedForLanguage(word, languageId);
+    const pending = latestPendingForLanguage(word, languageId);
+
+    if (!approved || !pending) return null;
+    return contributionTime(pending) > contributionTime(approved) ? pending : null;
   }
 
   function contributionsForLanguage(word: ComparisonWord, languageId: string) {
@@ -116,11 +136,12 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
       );
     }
 
-    const contribution = latestContributionFor(word, language.id);
+    const contribution = displayContributionFor(word, language.id);
+    const pendingCorrection = pendingCorrectionFor(word, language.id);
     if (!contribution) return <span className="text-[#a1a498]">-</span>;
 
     return (
-      <div className="grid gap-1">
+      <div className="grid gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-base font-semibold leading-snug text-[#20231f]">{contribution.translation}</p>
           {contribution.status === 'pending' ? (
@@ -130,6 +151,13 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
           ) : null}
         </div>
         {contribution.synonyms ? <p className="text-xs leading-snug text-[#62685d]">{contribution.synonyms}</p> : null}
+        {pendingCorrection ? (
+          <div className="rounded-md border border-[#eadca9] bg-[#fffaf0] px-2.5 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a5a09]">{t.pendingCorrection}</p>
+            <p className="mt-1 text-sm font-semibold leading-snug text-[#20231f]">{pendingCorrection.translation}</p>
+            {pendingCorrection.synonyms ? <p className="mt-1 text-xs leading-snug text-[#62685d]">{pendingCorrection.synonyms}</p> : null}
+          </div>
+        ) : null}
         {showContributors ? (
           <p className="text-xs font-medium text-[#7a7f73]">{contributorNamesForLanguage(word, language.id)}</p>
         ) : null}
@@ -313,7 +341,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                     </thead>
                     <tbody>
                       {comparisonLanguages.map((language) => {
-                        const contribution = latestContributionFor(word, language.id);
+                        const contribution = displayContributionFor(word, language.id);
                         return (
                           <tr key={language.id} className="border-b border-[#ebe9df] last:border-b-0">
                             <td className="bg-[#fbfaf6] px-5 py-4 align-top text-sm font-semibold text-[#295f4e]">
