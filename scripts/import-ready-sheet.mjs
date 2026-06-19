@@ -74,10 +74,14 @@ try {
   const existingByImportKey = new Map();
   const existingByComputedKey = new Map();
   const existingByFrench = new Map();
+  const existingBySourceRow = new Map();
 
   for (const row of assignImportKeys(existingRows)) {
     if (row.import_key) existingByImportKey.set(row.import_key, row);
     existingByComputedKey.set(row.importKey, row);
+    const sourceRowBucket = existingBySourceRow.get(row.source_row) ?? [];
+    sourceRowBucket.push(row);
+    existingBySourceRow.set(row.source_row, sourceRowBucket);
     const frenchKey = normalizeForKey(row.french);
     const bucket = existingByFrench.get(frenchKey) ?? [];
     bucket.push(row);
@@ -88,7 +92,7 @@ try {
   const updatedSourceRows = new Set();
 
   for (const record of records) {
-    const existing = findExistingRecord(record, existingByImportKey, existingByComputedKey, existingByFrench, touchedIds);
+    const existing = findExistingRecord(record, existingByImportKey, existingByComputedKey, existingBySourceRow, existingByFrench, touchedIds);
     if (!existing) {
       if (!dryRun) {
         const result = await client.query(
@@ -352,12 +356,15 @@ function assignImportKeys(rows) {
   });
 }
 
-function findExistingRecord(record, existingByImportKey, existingByComputedKey, existingByFrench, touchedIds) {
+function findExistingRecord(record, existingByImportKey, existingByComputedKey, existingBySourceRow, existingByFrench, touchedIds) {
   const direct = existingByImportKey.get(record.importKey);
   if (direct && !touchedIds.has(direct.id)) return direct;
 
   const computed = existingByComputedKey.get(record.importKey);
   if (computed && !touchedIds.has(computed.id)) return computed;
+
+  const sourceRowMatches = (existingBySourceRow.get(record.sourceRow) ?? []).filter((row) => !touchedIds.has(row.id));
+  if (sourceRowMatches.length === 1) return sourceRowMatches[0];
 
   const frenchMatches = (existingByFrench.get(normalizeForKey(record.french)) ?? []).filter((row) => !touchedIds.has(row.id));
   if (frenchMatches.length === 1) return frenchMatches[0];
