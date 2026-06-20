@@ -762,7 +762,14 @@ export async function listAdminWords(input: { language: string; q?: string; offs
     WHERE 1 = 1
       ${searchWhere}
     ORDER BY
-      CASE WHEN c.id IS NULL THEN 1 ELSE 0 END,
+      CASE
+        WHEN c.status = 'pending' THEN 0
+        WHEN c.status = 'rejected' THEN 1
+        WHEN c.status = 'approved' THEN 2
+        WHEN c.id IS NULL THEN 3
+        ELSE 4
+      END,
+      c.created_at DESC NULLS LAST,
       w.source_row ASC,
       w.id ASC
     LIMIT ${limitParam} OFFSET ${offsetParam}

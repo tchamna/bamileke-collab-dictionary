@@ -42,6 +42,35 @@ const adminActionText = {
   },
 };
 
+function statusStyles(status: AdminWord['status'] | 'empty') {
+  if (status === 'pending') {
+    return {
+      badge: 'bg-[#fff3c4] text-[#6f5600] ring-1 ring-[#e2c85f]',
+      panel: 'border-[#e2c85f] bg-[#fff8d9] text-[#6f5600]',
+      label: 'Pending approval',
+    };
+  }
+  if (status === 'approved') {
+    return {
+      badge: 'bg-[#e4f3e7] text-[#295f4e] ring-1 ring-[#9fc8ac]',
+      panel: 'border-[#9fc8ac] bg-[#eef8f0] text-[#295f4e]',
+      label: 'Approved',
+    };
+  }
+  if (status === 'rejected') {
+    return {
+      badge: 'bg-[#f8e0d8] text-[#9b3d2f] ring-1 ring-[#d7a393]',
+      panel: 'border-[#d7a393] bg-[#fff0eb] text-[#9b3d2f]',
+      label: 'Rejected',
+    };
+  }
+  return {
+    badge: 'bg-[#f1eee6] text-[#7a7569] ring-1 ring-[#d8d2c4]',
+    panel: 'border-[#d8d2c4] bg-[#fbfaf6] text-[#62685d]',
+    label: 'Empty',
+  };
+}
+
 export function AdminWorkspace() {
   const [adminText, setAdminText] = useState(adminActionText.fr);
   const [configured, setConfigured] = useState(true);
@@ -392,7 +421,9 @@ export function AdminWorkspace() {
   const pageEnd = Math.min(offset + data.rows.length, data.total);
   const selectedWord = data.rows.find((row) => row.wordId === selectedWordId) ?? data.rows[0] ?? null;
   const selectedLanguageLabel = LANGUAGES.find((item) => item.id === language)?.label ?? language;
+  const selectedStatusStyles = selectedWord ? statusStyles(selectedWord.contributionId ? selectedWord.status : 'empty') : null;
   const selectableRows = data.rows.filter((row) => row.contributionId && row.status !== 'approved');
+  const pendingVisibleCount = data.rows.filter((row) => row.status === 'pending' && row.contributionId).length;
   const selectedVisibleCount = selectableRows.filter((row) => row.contributionId && selectedContributionIds.has(row.contributionId)).length;
   const allVisibleSelected = selectableRows.length > 0 && selectedVisibleCount === selectableRows.length;
 
@@ -488,6 +519,9 @@ export function AdminWorkspace() {
               <p className="mt-1 text-sm font-semibold text-[#4d554b]">
                 {isLoading ? 'Loading...' : `${offset + 1}-${pageEnd} of ${data.total}`}
               </p>
+              <p className="mt-1 text-xs font-semibold text-[#6f5600]">
+                {pendingVisibleCount} pending on this page
+              </p>
             </div>
             <div className="flex gap-2">
               <button
@@ -532,64 +566,83 @@ export function AdminWorkspace() {
             </button>
           </div>
           <div className="max-h-[calc(100vh-320px)] overflow-auto p-2">
-            {data.rows.map((row) => (
-              <div
-                key={row.wordId}
-                className={`mb-2 block w-full rounded-md border p-3 text-left transition ${
-                  selectedWord?.wordId === row.wordId
-                    ? 'border-[#295f4e] bg-[#eef7f0]'
-                    : 'border-[#e1e2d8] bg-white hover:border-[#9ba58f]'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${row.french}`}
-                    checked={Boolean(row.contributionId && selectedContributionIds.has(row.contributionId))}
-                    disabled={!row.contributionId || row.status === 'approved'}
-                    onChange={(event) => {
-                      if (row.contributionId) toggleContributionSelection(row.contributionId, event.target.checked);
-                    }}
-                    className="mt-1 h-4 w-4 shrink-0 accent-[#295f4e] disabled:opacity-30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedWordId(row.wordId);
-                      setMessage('');
-                    }}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <span className="flex items-start justify-between gap-3">
-                      <span>
-                        <span className="block text-lg font-semibold text-[#20231f]">{row.french}</span>
-                        <span className="mt-1 block text-sm text-[#60665b]">{row.nufi.slice(0, 3).join(' / ') || '-'}</span>
+            {data.rows.map((row) => {
+              const styles = statusStyles(row.contributionId ? row.status : 'empty');
+
+              return (
+                <div
+                  key={row.wordId}
+                  className={`mb-2 block w-full rounded-md border p-3 text-left transition ${
+                    selectedWord?.wordId === row.wordId
+                      ? row.status === 'pending'
+                        ? 'border-[#c9a72a] bg-[#fff9de]'
+                        : 'border-[#295f4e] bg-[#eef7f0]'
+                      : row.status === 'pending'
+                        ? 'border-[#e2c85f] bg-[#fffdf0] hover:border-[#c9a72a]'
+                        : 'border-[#e1e2d8] bg-white hover:border-[#9ba58f]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.french}`}
+                      checked={Boolean(row.contributionId && selectedContributionIds.has(row.contributionId))}
+                      disabled={!row.contributionId || row.status === 'approved'}
+                      onChange={(event) => {
+                        if (row.contributionId) toggleContributionSelection(row.contributionId, event.target.checked);
+                      }}
+                      className="mt-1 h-4 w-4 shrink-0 accent-[#295f4e] disabled:opacity-30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedWordId(row.wordId);
+                        setMessage('');
+                      }}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span>
+                          <span className="block text-lg font-semibold text-[#20231f]">{row.french}</span>
+                          <span className="mt-1 block text-sm text-[#60665b]">{row.nufi.slice(0, 3).join(' / ') || '-'}</span>
+                        </span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles.badge}`}>
+                          {styles.label}
+                        </span>
                       </span>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          row.status === 'approved'
-                            ? 'bg-[#e8efe8] text-[#295f4e]'
-                            : row.status === 'pending'
-                              ? 'bg-[#fff3c4] text-[#6f5600]'
-                              : row.status === 'rejected'
-                                ? 'bg-[#f8e0d8] text-[#9b3d2f]'
-                                : 'bg-[#f1eee6] text-[#7a7569]'
-                        }`}
-                      >
-                        {row.contributionId ? row.status : 'empty'}
-                      </span>
-                    </span>
-                    {row.translation ? <span className="mt-2 block text-sm font-semibold text-[#344437]">{row.translation}</span> : null}
-                  </button>
+                      {row.translation ? <span className="mt-2 block text-sm font-semibold text-[#344437]">{row.translation}</span> : null}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </aside>
 
         <article className="rounded-lg border border-[#d8d6c8] bg-white p-4 shadow-sm sm:p-5">
           {selectedWord ? (
             <div className="grid gap-5">
+              {selectedStatusStyles ? (
+                <div className={`flex items-center justify-between gap-3 rounded-md border px-4 py-3 ${selectedStatusStyles.panel}`}>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]">Current status</p>
+                    <p className="mt-1 text-lg font-semibold">{selectedStatusStyles.label}</p>
+                  </div>
+                  {selectedWord.status === 'pending' && selectedWord.contributionId ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const approvedWord = { ...selectedWord, status: 'approved' as const };
+                        updateLocal(selectedWord.wordId, { status: 'approved' });
+                        await save(approvedWord);
+                      }}
+                      className="inline-flex h-10 items-center justify-center rounded-md bg-[#295f4e] px-4 text-sm font-semibold text-white"
+                    >
+                      Mark approved
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="grid gap-4 rounded-md bg-[#fbfaf6] p-4 md:grid-cols-[1fr_1fr]">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#687064]">French</p>
