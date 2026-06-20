@@ -6,8 +6,8 @@ A simple contribution interface for translating a predefined French/Nufi word li
 
 ```powershell
 npm install
-npm run import:ready -- --dry-run "C:\Users\tcham\Wokspace\Dictionnaire-Bamileke-Collaboratif\nufi_dictionary_transformed - Copy.xlsx"
-npm run import:ready -- "C:\Users\tcham\Wokspace\Dictionnaire-Bamileke-Collaboratif\nufi_dictionary_transformed - Copy.xlsx"
+npm run import:ready -- --dry-run "C:\Users\tcham\Wokspace\Dictionnaire-Bamileke-Collaboratif\nufi_dictionary_transformed - Current.xlsx"
+npm run import:ready -- "C:\Users\tcham\Wokspace\Dictionnaire-Bamileke-Collaboratif\nufi_dictionary_transformed - Current.xlsx"
 npm run dev
 ```
 

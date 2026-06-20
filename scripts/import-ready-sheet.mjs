@@ -12,9 +12,10 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const workbookArg = args.find((arg) => !arg.startsWith('--'));
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const defaultWorkbook = path.resolve(repoRoot, '..', 'nufi_dictionary_transformed - Copy.xlsx');
+const defaultWorkbook = path.resolve(repoRoot, '..', 'nufi_dictionary_transformed - Current.xlsx');
 const workbookPath = workbookArg ? path.resolve(workbookArg) : defaultWorkbook;
 const databaseUrl = process.env.DATABASE_URL;
+const importSheetName = 'Ready';
 
 if (!databaseUrl) {
   console.error('DATABASE_URL is required. Use your Neon pooled PostgreSQL connection string.');
@@ -27,9 +28,9 @@ if (!fs.existsSync(workbookPath)) {
 }
 
 const workbook = xlsx.readFile(workbookPath, { cellDates: false });
-const sheet = workbook.Sheets.Ready;
+const sheet = workbook.Sheets[importSheetName];
 if (!sheet) {
-  console.error(`Sheet "Ready" not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+  console.error(`Sheet "${importSheetName}" not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
   process.exit(1);
 }
 
@@ -160,7 +161,7 @@ try {
   await pool.end();
 }
 
-console.log(`${dryRun ? 'Dry run' : 'Upsert'} completed for Ready sheet.`);
+console.log(`${dryRun ? 'Dry run' : 'Upsert'} completed for ${importSheetName} sheet.`);
 console.table(stats);
 if (stats.staleDatabaseRows > 0) {
   console.log('Stale database rows were left untouched. Contributions remain attached to their existing base words.');
