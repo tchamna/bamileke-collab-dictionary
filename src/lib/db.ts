@@ -886,6 +886,24 @@ export async function updateAdminContribution(input: {
   return result.rows[0] ?? null;
 }
 
+export async function approveAdminContributions(ids: number[]) {
+  await ensureSchema();
+  const uniqueIds = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  if (uniqueIds.length === 0) return 0;
+
+  const result = await getPool().query(
+    `
+    UPDATE contributions
+    SET status = 'approved'
+    WHERE id = ANY($1::int[])
+      AND status <> 'approved'
+  `,
+    [uniqueIds]
+  );
+
+  return result.rowCount ?? 0;
+}
+
 export async function deleteAdminContribution(id: number) {
   await ensureSchema();
   const target = await getPool().query<{

@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Ban, ChevronLeft, ChevronRight, Languages, LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
+import { Ban, CheckSquare, ChevronLeft, ChevronRight, Languages, LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
 import { LANGUAGES } from '@/lib/languages';
 
 type AdminWord = {
@@ -60,6 +60,7 @@ export function AdminWorkspace() {
   const [data, setData] = useState<AdminResponse>({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [selectedContributionIds, setSelectedContributionIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const primary = navigator.languages?.[0] || navigator.language || '';
@@ -120,6 +121,7 @@ export function AdminWorkspace() {
     setAuthenticated(false);
     setAdminEmail('');
     setSelectedWordId(null);
+    setSelectedContributionIds(new Set());
     setData({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   }
 
@@ -135,6 +137,10 @@ export function AdminWorkspace() {
     }
     const payload = (await response.json()) as AdminResponse;
     setData(payload);
+    setSelectedContributionIds((current) => {
+      const visibleContributionIds = new Set(payload.rows.map((row) => row.contributionId).filter((id): id is number => Boolean(id)));
+      return new Set([...current].filter((id) => visibleContributionIds.has(id)));
+    });
     setSelectedWordId((current) => {
       if (current && payload.rows.some((row) => row.wordId === current)) return current;
       return payload.rows[0]?.wordId ?? null;
@@ -152,6 +158,62 @@ export function AdminWorkspace() {
       ...current,
       rows: current.rows.map((row) => (row.wordId === wordId ? { ...row, ...patch } : row)),
     }));
+  }
+
+  function toggleContributionSelection(contributionId: number, checked: boolean) {
+    setSelectedContributionIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(contributionId);
+      else next.delete(contributionId);
+      return next;
+    });
+  }
+
+  function toggleVisibleSelections(checked: boolean) {
+    const visibleIds = data.rows
+      .filter((row) => row.contributionId && row.status !== 'approved')
+      .map((row) => row.contributionId as number);
+
+    setSelectedContributionIds((current) => {
+      const next = new Set(current);
+      for (const id of visibleIds) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  async function approveSelected() {
+    const ids = [...selectedContributionIds];
+    if (ids.length === 0) {
+      setMessage('Select at least one entry to approve.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Approve ${ids.length} selected entr${ids.length === 1 ? 'y' : 'ies'}?`);
+    if (!confirmed) return;
+
+    setMessage('');
+    const response = await fetch('/api/admin/contributions/batch', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', ids }),
+    });
+    if (!response.ok) {
+      setMessage('Unable to approve selected entries.');
+      return;
+    }
+
+    const payload = (await response.json()) as { updatedCount: number };
+    setData((current) => ({
+      ...current,
+      rows: current.rows.map((row) =>
+        row.contributionId && selectedContributionIds.has(row.contributionId) ? { ...row, status: 'approved' } : row
+      ),
+    }));
+    setSelectedContributionIds(new Set());
+    setMessage(`${payload.updatedCount} selected entr${payload.updatedCount === 1 ? 'y was' : 'ies were'} approved.`);
   }
 
   async function save(row: AdminWord) {
@@ -330,6 +392,9 @@ export function AdminWorkspace() {
   const pageEnd = Math.min(offset + data.rows.length, data.total);
   const selectedWord = data.rows.find((row) => row.wordId === selectedWordId) ?? data.rows[0] ?? null;
   const selectedLanguageLabel = LANGUAGES.find((item) => item.id === language)?.label ?? language;
+  const selectableRows = data.rows.filter((row) => row.contributionId && row.status !== 'approved');
+  const selectedVisibleCount = selectableRows.filter((row) => row.contributionId && selectedContributionIds.has(row.contributionId)).length;
+  const allVisibleSelected = selectableRows.length > 0 && selectedVisibleCount === selectableRows.length;
 
   return (
     <main className="min-h-screen bg-[#f4f3ed] text-[#20231f]">
@@ -445,36 +510,79 @@ export function AdminWorkspace() {
               </button>
             </div>
           </div>
+          <div className="flex items-center justify-between gap-3 border-b border-[#e3e3da] bg-white px-4 py-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-[#344437]">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                disabled={selectableRows.length === 0}
+                onChange={(event) => toggleVisibleSelections(event.target.checked)}
+                className="h-4 w-4 accent-[#295f4e]"
+              />
+              Select page
+            </label>
+            <button
+              type="button"
+              onClick={approveSelected}
+              disabled={selectedContributionIds.size === 0}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Approve selected ({selectedContributionIds.size})
+            </button>
+          </div>
           <div className="max-h-[calc(100vh-320px)] overflow-auto p-2">
             {data.rows.map((row) => (
-              <button
+              <div
                 key={row.wordId}
-                type="button"
-                onClick={() => {
-                  setSelectedWordId(row.wordId);
-                  setMessage('');
-                }}
                 className={`mb-2 block w-full rounded-md border p-3 text-left transition ${
                   selectedWord?.wordId === row.wordId
                     ? 'border-[#295f4e] bg-[#eef7f0]'
                     : 'border-[#e1e2d8] bg-white hover:border-[#9ba58f]'
                 }`}
               >
-                <span className="flex items-start justify-between gap-3">
-                  <span>
-                    <span className="block text-lg font-semibold text-[#20231f]">{row.french}</span>
-                    <span className="mt-1 block text-sm text-[#60665b]">{row.nufi.slice(0, 3).join(' / ') || '-'}</span>
-                  </span>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      row.contributionId ? 'bg-[#e8efe8] text-[#295f4e]' : 'bg-[#f1eee6] text-[#7a7569]'
-                    }`}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${row.french}`}
+                    checked={Boolean(row.contributionId && selectedContributionIds.has(row.contributionId))}
+                    disabled={!row.contributionId || row.status === 'approved'}
+                    onChange={(event) => {
+                      if (row.contributionId) toggleContributionSelection(row.contributionId, event.target.checked);
+                    }}
+                    className="mt-1 h-4 w-4 shrink-0 accent-[#295f4e] disabled:opacity-30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedWordId(row.wordId);
+                      setMessage('');
+                    }}
+                    className="min-w-0 flex-1 text-left"
                   >
-                    {row.contributionId ? 'Filled' : 'Empty'}
-                  </span>
-                </span>
-                {row.translation ? <span className="mt-2 block text-sm font-semibold text-[#344437]">{row.translation}</span> : null}
-              </button>
+                    <span className="flex items-start justify-between gap-3">
+                      <span>
+                        <span className="block text-lg font-semibold text-[#20231f]">{row.french}</span>
+                        <span className="mt-1 block text-sm text-[#60665b]">{row.nufi.slice(0, 3).join(' / ') || '-'}</span>
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          row.status === 'approved'
+                            ? 'bg-[#e8efe8] text-[#295f4e]'
+                            : row.status === 'pending'
+                              ? 'bg-[#fff3c4] text-[#6f5600]'
+                              : row.status === 'rejected'
+                                ? 'bg-[#f8e0d8] text-[#9b3d2f]'
+                                : 'bg-[#f1eee6] text-[#7a7569]'
+                        }`}
+                      >
+                        {row.contributionId ? row.status : 'empty'}
+                      </span>
+                    </span>
+                    {row.translation ? <span className="mt-2 block text-sm font-semibold text-[#344437]">{row.translation}</span> : null}
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </aside>
