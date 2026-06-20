@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, Search } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Eye, EyeOff, Search } from 'lucide-react';
 import { customLanguageLabel, getLanguageLabel } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
@@ -50,6 +50,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
   const [data, setData] = useState<CompareResponse>({ rows: [], total: 0, limit: PAGE_SIZE, offset: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [showContributors, setShowContributors] = useState(false);
+  const [showDates, setShowDates] = useState(false);
   const [viewMode, setViewMode] = useState<CompareView>('horizontal');
   const [message, setMessage] = useState('');
 
@@ -133,6 +134,15 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     return contribution ? new Date(contribution.createdAt).getTime() : 0;
   }
 
+  function formatContributionDate(contribution: ComparisonContribution) {
+    const date = new Date(contribution.createdAt);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  }
+
   function latestApprovedForLanguage(word: ComparisonWord, languageId: string) {
     return word.contributions.find((item) => item.language === languageId && item.status === 'approved');
   }
@@ -157,12 +167,28 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     return word.contributions.filter((item) => item.language === languageId);
   }
 
-  function contributorNamesForLanguage(word: ComparisonWord, languageId: string) {
-    const names = contributionsForLanguage(word, languageId)
-      .map((item) => item.contributorName.trim() || item.contributorEmail.trim())
-      .filter(Boolean);
+  function contributionDetailsForLanguage(word: ComparisonWord, languageId: string) {
+    const contributions = contributionsForLanguage(word, languageId);
+    if (contributions.length === 0) return '-';
 
-    return [...new Set(names)].join(', ') || '-';
+    return contributions
+      .map((contribution) => {
+        const name = contribution.contributorName.trim() || contribution.contributorEmail.trim() || '-';
+        const date = `${t.submittedAt}: ${formatContributionDate(contribution)}`;
+        if (showContributors && showDates) return `${name} · ${date}`;
+        if (showContributors) return name;
+        if (showDates) return date;
+        return contribution.notes || '-';
+      })
+      .join('\n');
+  }
+
+  function contributionMeta(contribution: ComparisonContribution) {
+    const name = contribution.contributorName.trim() || contribution.contributorEmail.trim();
+    const parts = [];
+    if (showContributors) parts.push(name || '-');
+    if (showDates) parts.push(`${t.submittedAt}: ${formatContributionDate(contribution)}`);
+    return parts.join(' · ');
   }
 
   function renderLanguageCell(word: ComparisonWord, language: LanguageOption) {
@@ -195,10 +221,13 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a5a09]">{t.pendingCorrection}</p>
             <p className="mt-1 text-sm font-semibold leading-snug text-[#20231f]">{pendingCorrection.translation}</p>
             {pendingCorrection.synonyms ? <p className="mt-1 text-xs leading-snug text-[#62685d]">{pendingCorrection.synonyms}</p> : null}
+            {showContributors || showDates ? (
+              <p className="mt-1 text-xs font-medium text-[#7a7f73]">{contributionMeta(pendingCorrection)}</p>
+            ) : null}
           </div>
         ) : null}
-        {showContributors ? (
-          <p className="text-xs font-medium text-[#7a7f73]">{contributorNamesForLanguage(word, language.id)}</p>
+        {showContributors || showDates ? (
+          <p className="text-xs font-medium text-[#7a7f73]">{contributionMeta(contribution)}</p>
         ) : null}
       </div>
     );
@@ -223,14 +252,24 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 {isLoading ? t.loadingTranslations : t.comparisonSummary(data.total, comparisonLanguages.length)}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowContributors((value) => !value)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-4 text-sm font-semibold text-[#344437] shadow-sm transition hover:border-[#295f4e] lg:self-end"
-            >
-              {showContributors ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              {showContributors ? t.hideNames : t.showNames}
-            </button>
+            <div className="flex flex-wrap gap-2 lg:self-end">
+              <button
+                type="button"
+                onClick={() => setShowContributors((value) => !value)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-4 text-sm font-semibold text-[#344437] shadow-sm transition hover:border-[#295f4e]"
+              >
+                {showContributors ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showContributors ? t.hideNames : t.showNames}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDates((value) => !value)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-4 text-sm font-semibold text-[#344437] shadow-sm transition hover:border-[#295f4e]"
+              >
+                <CalendarClock className="h-4 w-4" />
+                {showDates ? t.hideDates : t.showDates}
+              </button>
+            </div>
           </div>
           <form onSubmit={search} className="flex flex-col gap-3 rounded-lg border border-[#d8d6c8] bg-white p-2 shadow-sm sm:flex-row">
             <label className="relative flex-1">
@@ -374,7 +413,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                         <th className="w-64 px-5 py-3 text-sm font-semibold text-[#111611]">{t.language}</th>
                         <th className="px-5 py-3 text-sm font-semibold text-[#111611]">{t.translation}</th>
                         <th className="w-80 px-5 py-3 text-sm font-semibold text-[#111611]">
-                          {showContributors ? t.contributor : t.notes}
+                          {showContributors || showDates ? t.contributor : t.notes}
                         </th>
                       </tr>
                     </thead>
@@ -387,11 +426,11 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                               {language.label}
                             </td>
                             <td className="px-5 py-4 align-top">{renderLanguageCell(word, language)}</td>
-                            <td className="px-5 py-4 align-top text-sm leading-relaxed text-[#62685d]">
+                            <td className="whitespace-pre-line px-5 py-4 align-top text-sm leading-relaxed text-[#62685d]">
                               {language.id === 'nufi'
                                 ? t.nufiImportReference
-                                : showContributors
-                                  ? contributorNamesForLanguage(word, language.id)
+                                : showContributors || showDates
+                                  ? contributionDetailsForLanguage(word, language.id)
                                   : contribution?.notes || '-'}
                             </td>
                           </tr>
