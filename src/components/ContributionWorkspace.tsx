@@ -328,6 +328,21 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   {t.appName}
                 </div>
                 <h1 className="mt-3 text-2xl font-semibold tracking-normal text-[#18221d] sm:mt-4 sm:text-5xl">{t.translateFrenchList}</h1>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
+                  <a
+                    href="/compare"
+                    className="inline-flex h-12 items-center justify-center rounded-lg border border-[#c9c0ad] bg-white px-3 text-sm font-semibold text-[#295f4e] shadow-sm"
+                  >
+                    {t.comparisonPage}
+                  </a>
+                  <a
+                    href="/leaderboard"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-3 text-sm font-semibold text-[#295f4e] shadow-sm"
+                  >
+                    <Award className="h-4 w-4" />
+                    {t.leaderboardPage}
+                  </a>
+                </div>
                 <div className="mt-4 hidden flex-wrap items-center gap-3 sm:flex">
                   <a
                     href="/compare"
@@ -656,6 +671,13 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                         <p className="mt-1 text-sm font-semibold text-[#2f6b58]">
                           {t.contributorRank(contributorStats.rank, contributorStats.rankedContributorCount)}
                         </p>
+                        <a
+                          href="/leaderboard"
+                          className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2f6b58] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#255645]"
+                        >
+                          <Award className="h-4 w-4" />
+                          {t.leaderboardPage}
+                        </a>
                         {contributorExportHref ? (
                           <a
                             href={contributorExportHref}
