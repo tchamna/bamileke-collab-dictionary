@@ -52,3 +52,6 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy
+
+      - name: Verify production routes
+        run: npm run verify:production -- https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
