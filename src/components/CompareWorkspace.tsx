@@ -62,6 +62,10 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     const extraIds = new Set<string>();
 
     for (const word of data.rows) {
+      if (word.nufi.length > 0) {
+        contributionCounts.set('nufi', (contributionCounts.get('nufi') ?? 0) + 1);
+      }
+
       for (const contribution of word.contributions) {
         contributionCounts.set(contribution.language, (contributionCounts.get(contribution.language) ?? 0) + 1);
         if (!knownIds.has(contribution.language) && contribution.language !== 'other') {
