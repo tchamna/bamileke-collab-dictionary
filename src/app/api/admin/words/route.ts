@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     limit: result.limit,
     offset: result.offset,
     rows: result.rows.map((row) => ({
+      rowKey: row.contribution_id ? `c-${row.contribution_id}` : `w-${row.word_id}-${row.language ?? language}`,
       wordId: row.word_id,
       french: row.french,
       english: row.english,

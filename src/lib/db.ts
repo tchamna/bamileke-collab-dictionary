@@ -705,6 +705,70 @@ export async function listAdminWords(input: { language: string; q?: string; offs
   const language = input.language.trim();
   const q = input.q?.trim() ?? '';
   const searchPattern = q ? `%${q}%` : null;
+  const pool = getPool();
+
+  if (searchPattern) {
+    const contributorSearch = await pool.query<{ has_match: boolean }>(
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM contributions
+        WHERE contributor_name ILIKE $1
+           OR contributor_email ILIKE $1
+      ) AS has_match
+    `,
+      [searchPattern]
+    );
+
+    if (contributorSearch.rows[0]?.has_match) {
+      const countResult = await pool.query<{ total: string }>(
+        `
+        SELECT COUNT(*) AS total
+        FROM contributions c
+        WHERE c.contributor_name ILIKE $1
+           OR c.contributor_email ILIKE $1
+      `,
+        [searchPattern]
+      );
+
+      const rowsResult = await pool.query<AdminWordRow>(
+        `
+        SELECT
+          w.id AS word_id,
+          w.french,
+          w.english,
+          w.nufi_json,
+          c.id AS contribution_id,
+          c.language,
+          c.translation,
+          c.synonyms,
+          c.contributor_name,
+          c.contributor_email,
+          c.notes,
+          c.status,
+          c.created_at
+        FROM contributions c
+        INNER JOIN predefined_words w ON w.id = c.word_id
+        WHERE c.contributor_name ILIKE $1
+           OR c.contributor_email ILIKE $1
+        ORDER BY
+          CASE
+            WHEN c.status = 'pending' THEN 0
+            WHEN c.status = 'rejected' THEN 1
+            WHEN c.status = 'approved' THEN 2
+            ELSE 3
+          END,
+          c.created_at DESC,
+          c.id DESC
+        LIMIT $2 OFFSET $3
+      `,
+        [searchPattern, limit, offset]
+      );
+
+      return { rows: rowsResult.rows, total: Number(countResult.rows[0]?.total ?? 0), limit, offset };
+    }
+  }
+
   const searchWhere = searchPattern
     ? `AND (
         w.search_text ILIKE $2
@@ -718,7 +782,7 @@ export async function listAdminWords(input: { language: string; q?: string; offs
   const limitParam = searchPattern ? '$3' : '$2';
   const offsetParam = searchPattern ? '$4' : '$3';
 
-  const countResult = await getPool().query<{ total: string }>(
+  const countResult = await pool.query<{ total: string }>(
     `
     SELECT COUNT(*) AS total
     FROM predefined_words w
@@ -735,7 +799,7 @@ export async function listAdminWords(input: { language: string; q?: string; offs
     searchPattern ? [language, searchPattern] : [language]
   );
 
-  const rowsResult = await getPool().query<AdminWordRow>(
+  const rowsResult = await pool.query<AdminWordRow>(
     `
     SELECT
       w.id AS word_id,

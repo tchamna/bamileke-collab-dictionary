@@ -5,6 +5,7 @@ import { Ban, CheckSquare, ChevronLeft, ChevronRight, Languages, LogOut, Save, S
 import { LANGUAGES } from '@/lib/languages';
 
 type AdminWord = {
+  rowKey: string;
   wordId: number;
   french: string;
   english: string;
@@ -71,6 +72,10 @@ function statusStyles(status: AdminWord['status'] | 'empty') {
   };
 }
 
+function getLanguageLabel(languageId: string) {
+  return LANGUAGES.find((item) => item.id === languageId)?.label ?? languageId;
+}
+
 export function AdminWorkspace() {
   const [adminText, setAdminText] = useState(adminActionText.fr);
   const [configured, setConfigured] = useState(true);
@@ -85,7 +90,7 @@ export function AdminWorkspace() {
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [offset, setOffset] = useState(0);
-  const [selectedWordId, setSelectedWordId] = useState<number | null>(null);
+  const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
   const [data, setData] = useState<AdminResponse>({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -149,7 +154,7 @@ export function AdminWorkspace() {
     await fetch('/api/admin/session', { method: 'DELETE' });
     setAuthenticated(false);
     setAdminEmail('');
-    setSelectedWordId(null);
+    setSelectedRowKey(null);
     setSelectedContributionIds(new Set());
     setData({ rows: [], total: 0, offset: 0, limit: PAGE_SIZE });
   }
@@ -170,9 +175,9 @@ export function AdminWorkspace() {
       const visibleContributionIds = new Set(payload.rows.map((row) => row.contributionId).filter((id): id is number => Boolean(id)));
       return new Set([...current].filter((id) => visibleContributionIds.has(id)));
     });
-    setSelectedWordId((current) => {
-      if (current && payload.rows.some((row) => row.wordId === current)) return current;
-      return payload.rows[0]?.wordId ?? null;
+    setSelectedRowKey((current) => {
+      if (current && payload.rows.some((row) => row.rowKey === current)) return current;
+      return payload.rows[0]?.rowKey ?? null;
     });
   }
 
@@ -182,10 +187,10 @@ export function AdminWorkspace() {
     setActiveQuery(query.trim());
   }
 
-  function updateLocal(wordId: number, patch: Partial<AdminWord>) {
+  function updateLocal(rowKey: string, patch: Partial<AdminWord>) {
     setData((current) => ({
       ...current,
-      rows: current.rows.map((row) => (row.wordId === wordId ? { ...row, ...patch } : row)),
+      rows: current.rows.map((row) => (row.rowKey === rowKey ? { ...row, ...patch } : row)),
     }));
   }
 
@@ -253,7 +258,7 @@ export function AdminWorkspace() {
       body: JSON.stringify({
         wordId: row.wordId,
         contributionId: row.contributionId,
-        language,
+        language: row.language || language,
         translation: row.translation,
         synonyms: row.synonyms,
         contributorName: row.contributorName,
@@ -266,7 +271,9 @@ export function AdminWorkspace() {
       return false;
     }
     const payload = (await response.json()) as { contributionId: number };
-    updateLocal(row.wordId, { contributionId: payload.contributionId, language });
+    const nextRowKey = `c-${payload.contributionId}`;
+    updateLocal(row.rowKey, { rowKey: nextRowKey, contributionId: payload.contributionId, language: row.language || language });
+    setSelectedRowKey(nextRowKey);
     setMessage('Entry saved.');
     return true;
   }
@@ -277,11 +284,11 @@ export function AdminWorkspace() {
       return;
     }
 
-    const confirmed = window.confirm(`Discard ${language} translation for "${row.french}"? This will remove its contributor points.`);
+    const confirmed = window.confirm(`Discard ${getLanguageLabel(row.language)} translation for "${row.french}"? This will remove its contributor points.`);
     if (!confirmed) return;
 
     const rejectedRow = { ...row, status: 'rejected' as const };
-    updateLocal(row.wordId, { status: 'rejected' });
+    updateLocal(row.rowKey, { status: 'rejected' });
     const saved = await save(rejectedRow);
     if (saved) setMessage('Entry discarded. Contributor points were reduced.');
   }
@@ -291,7 +298,7 @@ export function AdminWorkspace() {
       setMessage('There is no translation to delete for this word.');
       return;
     }
-    const confirmed = window.confirm(`Delete ${language} translation for "${row.french}"?`);
+    const confirmed = window.confirm(`Delete ${getLanguageLabel(row.language)} translation for "${row.french}"?`);
     if (!confirmed) return;
 
     const response = await fetch(`/api/admin/contributions/${row.contributionId}`, { method: 'DELETE' });
@@ -302,8 +309,17 @@ export function AdminWorkspace() {
     setData((current) => ({
       ...current,
       rows: current.rows.map((item) =>
-        item.wordId === row.wordId
-          ? { ...item, contributionId: null, translation: '', synonyms: '', contributorName: '', notes: '', status: 'pending' }
+        item.rowKey === row.rowKey
+          ? {
+              ...item,
+              rowKey: `w-${item.wordId}-${item.language}`,
+              contributionId: null,
+              translation: '',
+              synonyms: '',
+              contributorName: '',
+              notes: '',
+              status: 'pending',
+            }
           : item
       ),
     }));
@@ -419,8 +435,11 @@ export function AdminWorkspace() {
   }
 
   const pageEnd = Math.min(offset + data.rows.length, data.total);
-  const selectedWord = data.rows.find((row) => row.wordId === selectedWordId) ?? data.rows[0] ?? null;
+  const selectedWord = data.rows.find((row) => row.rowKey === selectedRowKey) ?? data.rows[0] ?? null;
   const selectedLanguageLabel = LANGUAGES.find((item) => item.id === language)?.label ?? language;
+  const selectedWordLanguageLabel = selectedWord ? getLanguageLabel(selectedWord.language) : selectedLanguageLabel;
+  const showingGlobalContributorResults = Boolean(activeQuery && data.rows.some((row) => row.language !== language));
+  const listHeaderLabel = showingGlobalContributorResults ? 'All matching languages' : selectedLanguageLabel;
   const selectedStatusStyles = selectedWord ? statusStyles(selectedWord.contributionId ? selectedWord.status : 'empty') : null;
   const selectableRows = data.rows.filter((row) => row.contributionId && row.status !== 'approved');
   const pendingVisibleCount = data.rows.filter((row) => row.status === 'pending' && row.contributionId).length;
@@ -454,7 +473,7 @@ export function AdminWorkspace() {
                 onChange={(event) => {
                   setLanguage(event.target.value);
                   setOffset(0);
-                  setSelectedWordId(null);
+                  setSelectedRowKey(null);
                 }}
                 className="h-12 w-full rounded-md border border-transparent bg-[#fbfaf6] pl-12 pr-4 text-base font-semibold outline-none focus:border-[#295f4e]"
               >
@@ -515,7 +534,7 @@ export function AdminWorkspace() {
         <aside className="overflow-hidden rounded-lg border border-[#d8d6c8] bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-[#e3e3da] bg-[#fbfaf6] px-4 py-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#687064]">{selectedLanguageLabel}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#687064]">{listHeaderLabel}</p>
               <p className="mt-1 text-sm font-semibold text-[#4d554b]">
                 {isLoading ? 'Loading...' : `${offset + 1}-${pageEnd} of ${data.total}`}
               </p>
@@ -571,9 +590,9 @@ export function AdminWorkspace() {
 
               return (
                 <div
-                  key={row.wordId}
+                  key={row.rowKey}
                   className={`mb-2 block w-full rounded-md border p-3 text-left transition ${
-                    selectedWord?.wordId === row.wordId
+                    selectedWord?.rowKey === row.rowKey
                       ? row.status === 'pending'
                         ? 'border-[#c9a72a] bg-[#fff9de]'
                         : 'border-[#295f4e] bg-[#eef7f0]'
@@ -596,7 +615,7 @@ export function AdminWorkspace() {
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedWordId(row.wordId);
+                        setSelectedRowKey(row.rowKey);
                         setMessage('');
                       }}
                       className="min-w-0 flex-1 text-left"
@@ -605,6 +624,9 @@ export function AdminWorkspace() {
                         <span>
                           <span className="block text-lg font-semibold text-[#20231f]">{row.french}</span>
                           <span className="mt-1 block text-sm text-[#60665b]">{row.nufi.slice(0, 3).join(' / ') || '-'}</span>
+                          <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-[#295f4e]">
+                            {getLanguageLabel(row.language)}
+                          </span>
                         </span>
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles.badge}`}>
                           {styles.label}
@@ -633,7 +655,7 @@ export function AdminWorkspace() {
                       type="button"
                       onClick={async () => {
                         const approvedWord = { ...selectedWord, status: 'approved' as const };
-                        updateLocal(selectedWord.wordId, { status: 'approved' });
+                        updateLocal(selectedWord.rowKey, { status: 'approved' });
                         await save(approvedWord);
                       }}
                       className="inline-flex h-10 items-center justify-center rounded-md bg-[#295f4e] px-4 text-sm font-semibold text-white"
@@ -653,17 +675,17 @@ export function AdminWorkspace() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#687064]">Nufi</p>
                   <p className="mt-2 text-lg font-semibold">{selectedWord.nufi.join(' / ') || '-'}</p>
                   <p className="mt-3 text-sm font-semibold text-[#4d6252]">
-                    {selectedWord.contributionId ? `Editing ${selectedLanguageLabel} translation` : `No ${selectedLanguageLabel} translation yet`}
+                    {selectedWord.contributionId ? `Editing ${selectedWordLanguageLabel} translation` : `No ${selectedWordLanguageLabel} translation yet`}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="grid gap-1 text-sm font-semibold md:col-span-2">
-                  Translation in {selectedLanguageLabel}
+                  Translation in {selectedWordLanguageLabel}
                   <input
                     value={selectedWord.translation}
-                    onChange={(event) => updateLocal(selectedWord.wordId, { translation: event.target.value })}
+                    onChange={(event) => updateLocal(selectedWord.rowKey, { translation: event.target.value })}
                     className="h-12 rounded-md border border-[#b8bcad] px-3 text-lg font-semibold"
                   />
                 </label>
@@ -671,7 +693,7 @@ export function AdminWorkspace() {
                   Status
                   <select
                     value={selectedWord.status}
-                    onChange={(event) => updateLocal(selectedWord.wordId, { status: event.target.value as AdminWord['status'] })}
+                    onChange={(event) => updateLocal(selectedWord.rowKey, { status: event.target.value as AdminWord['status'] })}
                     className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
                   >
                     <option value="approved">approved</option>
@@ -683,7 +705,7 @@ export function AdminWorkspace() {
                   Contributor
                   <input
                     value={selectedWord.contributorName}
-                    onChange={(event) => updateLocal(selectedWord.wordId, { contributorName: event.target.value })}
+                    onChange={(event) => updateLocal(selectedWord.rowKey, { contributorName: event.target.value })}
                     className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
                   />
                 </label>
@@ -691,7 +713,7 @@ export function AdminWorkspace() {
                   Synonyms
                   <textarea
                     value={selectedWord.synonyms}
-                    onChange={(event) => updateLocal(selectedWord.wordId, { synonyms: event.target.value })}
+                    onChange={(event) => updateLocal(selectedWord.rowKey, { synonyms: event.target.value })}
                     className="min-h-24 rounded-md border border-[#b8bcad] px-3 py-2 font-normal"
                   />
                 </label>
@@ -699,7 +721,7 @@ export function AdminWorkspace() {
                   Notes
                   <textarea
                     value={selectedWord.notes}
-                    onChange={(event) => updateLocal(selectedWord.wordId, { notes: event.target.value })}
+                    onChange={(event) => updateLocal(selectedWord.rowKey, { notes: event.target.value })}
                     className="min-h-24 rounded-md border border-[#b8bcad] px-3 py-2 font-normal"
                   />
                 </label>
