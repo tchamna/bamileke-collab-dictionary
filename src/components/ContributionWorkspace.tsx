@@ -49,7 +49,7 @@ type ContributionResponse = {
 const PAGE_SIZE = 50;
 const CONTRIBUTOR_NAME_STORAGE_KEY = 'bamilekeContributorName';
 const CONTRIBUTOR_EMAIL_STORAGE_KEY = 'bamilekeContributorEmail';
-type MobileQueueMode = 'random' | 'sequential';
+type QueueMode = 'random' | 'sequential';
 const EMPTY_CONTRIBUTOR_STATS: ContributorStats = { contributionCount: 0, points: 0, rank: null, rankedContributorCount: 0 };
 
 export function ContributionWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
@@ -73,7 +73,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showExistingTranslationDialog, setShowExistingTranslationDialog] = useState(false);
-  const [mobileQueueMode, setMobileQueueMode] = useState<MobileQueueMode>('random');
+  const [queueMode, setQueueMode] = useState<QueueMode>('random');
   const [message, setMessage] = useState('');
 
   const customLanguageId = normalizeLanguageId(customLanguage);
@@ -241,7 +241,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   }
 
   function showNextWord() {
-    if (mobileQueueMode === 'random') {
+    if (queueMode === 'random') {
       void fetchRandomWord();
     } else {
       nextSequentialWord();
@@ -527,7 +527,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                   <div className="min-w-0 text-center">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#74776d]">{t.wordToTranslate}</p>
                     <p className="mt-0.5 text-sm font-semibold text-[#2f6b58]">
-                      {mobileQueueMode === 'random' ? t.fullPool : `${offset + selectedWordIndex + 1} ${t.of} ${data.total}`}
+                      {queueMode === 'random' ? t.fullPool : `${offset + selectedWordIndex + 1} ${t.of} ${data.total}`}
                     </p>
                   </div>
                   <button
@@ -545,11 +545,11 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     <button
                       type="button"
                       onClick={() => {
-                        setMobileQueueMode('random');
+                        setQueueMode('random');
                         void fetchRandomWord();
                       }}
                       className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
-                        mobileQueueMode === 'random' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
+                        queueMode === 'random' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
                       }`}
                     >
                       <Shuffle className="h-4 w-4" />
@@ -558,11 +558,11 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                     <button
                       type="button"
                       onClick={() => {
-                        setMobileQueueMode('sequential');
+                        setQueueMode('sequential');
                         nextSequentialWord();
                       }}
                       className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
-                        mobileQueueMode === 'sequential' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
+                        queueMode === 'sequential' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
                       }`}
                     >
                       <Rows3 className="h-4 w-4" />
@@ -580,7 +580,52 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
                 </div>
                 <div className="grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.frenchWord}</p>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.frenchWord}</p>
+                        <p className="mt-1 hidden text-sm font-semibold text-[#2f6b58] lg:block">
+                          {queueMode === 'random' ? t.fullPool : `${offset + selectedWordIndex + 1} ${t.of} ${data.total}`}
+                        </p>
+                      </div>
+                      <div className="hidden min-w-[330px] gap-2 lg:grid">
+                        <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#f4f1e8] p-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQueueMode('random');
+                              void fetchRandomWord();
+                            }}
+                            className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
+                              queueMode === 'random' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
+                            }`}
+                          >
+                            <Shuffle className="h-4 w-4" />
+                            {t.random}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQueueMode('sequential');
+                              nextSequentialWord();
+                            }}
+                            className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${
+                              queueMode === 'sequential' ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#344437]'
+                            }`}
+                          >
+                            <Rows3 className="h-4 w-4" />
+                            {t.sequential}
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={showNextWord}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
+                        >
+                          <SkipForward className="h-4 w-4" />
+                          {t.skipWord}
+                        </button>
+                      </div>
+                    </div>
                     <p className="mt-2 max-w-3xl text-2xl font-semibold leading-tight text-[#18221d] sm:text-4xl">
                       {selectedWord.french}
                     </p>
