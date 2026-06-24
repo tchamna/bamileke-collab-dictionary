@@ -102,7 +102,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [isShowingAllClues, setIsShowingAllClues] = useState(false);
+  const [revealedClueCount, setRevealedClueCount] = useState(1);
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -116,14 +116,13 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
     () => round?.clues.filter((clue) => !knownLanguageSet.has(clue.language)) ?? [],
     [knownLanguageSet, round]
   );
-  const primaryClue = visibleClues[0] ?? null;
-  const displayedClues = isShowingAllClues ? visibleClues : primaryClue ? [primaryClue] : [];
+  const displayedClues = visibleClues.slice(0, Math.max(1, Math.min(revealedClueCount, visibleClues.length)));
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer && round ? selectedAnswer === round.correctAnswer : false;
   const activeAnswerLanguage = round?.answerLanguage ?? preferredLanguage;
   const clueCountLabel =
-    !isShowingAllClues && visibleClues.length > 1
-      ? `1 of ${visibleClues.length} clues`
+    displayedClues.length < visibleClues.length
+      ? `${displayedClues.length} of ${visibleClues.length} clues`
       : `${displayedClues.length} clue${displayedClues.length === 1 ? '' : 's'}`;
 
   useEffect(() => {
@@ -233,7 +232,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
     setIsLoading(true);
     setMessage('');
     setSelectedAnswer('');
-    setIsShowingAllClues(false);
+    setRevealedClueCount(1);
     setRound(null);
     setChoices([]);
 
@@ -299,6 +298,10 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
     setAttempts(0);
     setStreak(0);
     setSelectedAnswer('');
+  }
+
+  function revealNextClue() {
+    setRevealedClueCount((current) => Math.min(current + 1, visibleClues.length));
   }
 
   return (
@@ -536,10 +539,10 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6c7268]">Bamileke clues</p>
                       <button
                         type="button"
-                        onClick={() => setIsShowingAllClues(true)}
-                        disabled={visibleClues.length <= 1 || isShowingAllClues}
+                        onClick={revealNextClue}
+                        disabled={displayedClues.length >= visibleClues.length}
                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold transition ${
-                          visibleClues.length > 1 && !isShowingAllClues
+                          displayedClues.length < visibleClues.length
                             ? 'border-[#2f6b58] bg-white text-[#355f4f] hover:bg-[#edf3ef]'
                             : 'border-[#d8d6c8] bg-white text-[#6c7268]'
                         }`}
@@ -553,7 +556,8 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                         <button
                           key={`${clue.language}-${clue.translation}-${index}`}
                           type="button"
-                          onClick={() => setIsShowingAllClues(true)}
+                          onClick={revealNextClue}
+                          disabled={displayedClues.length >= visibleClues.length}
                           className="rounded-lg border border-[#d8d6c8] bg-white px-4 py-3 text-left transition hover:border-[#2f6b58] hover:bg-[#f7fbf8]"
                         >
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#697064]">{languageLabel(clue.language)}</p>
@@ -561,8 +565,8 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                         </button>
                       ))}
                     </div>
-                    {!isShowingAllClues && visibleClues.length > 1 ? (
-                      <p className="mt-3 text-sm font-semibold text-[#355f4f]">Click the clue to reveal this word in other available languages.</p>
+                    {displayedClues.length < visibleClues.length ? (
+                      <p className="mt-3 text-sm font-semibold text-[#355f4f]">Click the clue button to reveal one more available language.</p>
                     ) : null}
                   </div>
 
