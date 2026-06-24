@@ -8,13 +8,37 @@ const MUSIC_ENABLED_STORAGE_KEY = 'bamilekeGameMusicEnabled';
 const BACKGROUND_VOLUME = 0.08;
 const CAPTURE = { capture: true };
 
-export function GameBackgroundMusic({ embedded = false }: { embedded?: boolean }) {
+type MusicLocale = 'english' | 'french';
+
+const MUSIC_TEXT = {
+  english: {
+    title: 'Background music',
+    playing: 'Playing soundtrack',
+    startsOnPlay: 'Starts on play',
+    off: 'Off',
+    on: 'On',
+    turnOff: 'Turn music off',
+    turnOn: 'Turn music on',
+  },
+  french: {
+    title: 'Musique de fond',
+    playing: 'Musique en lecture',
+    startsOnPlay: 'Demarre au jeu',
+    off: 'Off',
+    on: 'On',
+    turnOff: 'Arreter la musique',
+    turnOn: 'Activer la musique',
+  },
+};
+
+export function GameBackgroundMusic({ embedded = false, locale = 'french' }: { embedded?: boolean; locale?: MusicLocale }) {
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const playlistRef = useRef<string[]>([]);
   const trackIndexRef = useRef(0);
   const enabledRef = useRef(true);
+  const text = MUSIC_TEXT[locale];
 
   useEffect(() => {
     const stored = window.localStorage.getItem(MUSIC_ENABLED_STORAGE_KEY);
@@ -127,8 +151,8 @@ export function GameBackgroundMusic({ embedded = false }: { embedded?: boolean }
           <Music className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[#17211c]">Background music</p>
-          <p className="truncate text-xs font-medium text-[#62685d]">{isPlaying ? 'Playing soundtrack' : isEnabled ? 'Starts on play' : 'Off'}</p>
+          <p className="truncate text-sm font-semibold text-[#17211c]">{text.title}</p>
+          <p className="truncate text-xs font-medium text-[#62685d]">{isPlaying ? text.playing : isEnabled ? text.startsOnPlay : text.off}</p>
         </div>
       </div>
       <audio ref={setAudioEl} preload="auto" playsInline aria-hidden="true" />
@@ -136,13 +160,13 @@ export function GameBackgroundMusic({ embedded = false }: { embedded?: boolean }
         type="button"
         onClick={toggleMusic}
         aria-pressed={isEnabled}
-        aria-label={isEnabled ? 'Turn music off' : 'Turn music on'}
+        aria-label={isEnabled ? text.turnOff : text.turnOn}
         className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold shadow-sm transition ${
           isEnabled ? 'bg-[#2f6b58] text-white hover:bg-[#255645]' : 'border border-[#c9cabc] bg-white text-[#355f4f] hover:border-[#2f6b58]'
         }`}
       >
         {isEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-        {isEnabled ? 'On' : 'Off'}
+        {isEnabled ? text.on : text.off}
       </button>
     </div>
   );

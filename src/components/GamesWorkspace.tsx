@@ -13,6 +13,7 @@ type LanguageOption = {
 };
 
 type PreferredLanguage = 'english' | 'french';
+type UiLocale = 'english' | 'french';
 
 type GameRound = {
   id: number;
@@ -34,6 +35,95 @@ const PLAYER_ID_STORAGE_KEY = 'bamilekeGamePlayerId';
 const PLAYER_NAME_STORAGE_KEY = 'bamilekeGamePlayerName';
 const PLAYER_EMAIL_STORAGE_KEY = 'bamilekeGamePlayerEmail';
 type MobileSettingsSection = 'languages' | 'answers' | 'music' | 'profile';
+
+const UI_TEXT = {
+  english: {
+    navBadge: 'Games',
+    score: 'Score',
+    rounds: 'Rounds',
+    streak: 'Streak',
+    availableLanguages: 'Available languages',
+    excludedSummary: (count: number) => `${count} excluded`,
+    allCluesActive: 'All clue languages active',
+    useAll: 'Use all',
+    useAllClueLanguages: 'Use all clue languages',
+    excludePromptStart: 'Select any available languages you want to',
+    excludeWord: 'exclude',
+    excludePromptEnd: 'from the clue list.',
+    answerLanguage: 'Answer language',
+    englishAnswers: 'English answers',
+    frenchAnswers: 'French answers',
+    english: 'English',
+    french: 'French',
+    backgroundMusic: 'Background music',
+    soundtrackControls: 'Soundtrack controls',
+    learningResources: 'Learning resources',
+    playerProfile: 'Player profile',
+    savedForLeaderboard: 'Saved for leaderboard',
+    optionalLeaderboardInfo: 'Optional leaderboard info',
+    name: 'Name',
+    playerName: 'Player name',
+    email: 'Email',
+    gamerLeaderboard: 'Gamer leaderboard',
+    gameOne: 'Game 1',
+    chooseMeaning: 'Choose the meaning',
+    reset: 'Reset',
+    skip: 'Skip',
+    noPlayable: 'No playable words found. Keep at least one Bamileke language available for clues.',
+    bamilekeClues: 'Bamileke clues',
+    clueCount: (shown: number, total: number) => (shown < total ? `${shown} of ${total} clues` : `${shown} clue${shown === 1 ? '' : 's'}`),
+    revealMore: 'Click the clue button to reveal one more available language.',
+    correct: 'Correct.',
+    correctAnswer: (answer: string) => `Correct answer: ${answer}`,
+    nextRound: 'Next round',
+  },
+  french: {
+    navBadge: 'Jeux',
+    score: 'Score',
+    rounds: 'Parties',
+    streak: 'Serie',
+    availableLanguages: 'Langues disponibles',
+    excludedSummary: (count: number) => `${count} exclue${count === 1 ? '' : 's'}`,
+    allCluesActive: 'Toutes les langues indice sont actives',
+    useAll: 'Tout utiliser',
+    useAllClueLanguages: 'Utiliser toutes les langues indice',
+    excludePromptStart: 'Selectionnez les langues disponibles que vous voulez',
+    excludeWord: 'exclure',
+    excludePromptEnd: 'de la liste des indices.',
+    answerLanguage: 'Langue des reponses',
+    englishAnswers: 'Reponses en anglais',
+    frenchAnswers: 'Reponses en francais',
+    english: 'Anglais',
+    french: 'Francais',
+    backgroundMusic: 'Musique de fond',
+    soundtrackControls: 'Controle de la musique',
+    learningResources: 'Ressources d apprentissage',
+    playerProfile: 'Profil du joueur',
+    savedForLeaderboard: 'Enregistre pour le classement',
+    optionalLeaderboardInfo: 'Infos facultatives pour le classement',
+    name: 'Nom',
+    playerName: 'Nom du joueur',
+    email: 'Email',
+    gamerLeaderboard: 'Classement des joueurs',
+    gameOne: 'Jeu 1',
+    chooseMeaning: 'Choisissez le sens',
+    reset: 'Reinitialiser',
+    skip: 'Passer',
+    noPlayable: 'Aucun mot jouable trouve. Gardez au moins une langue bamileke disponible pour les indices.',
+    bamilekeClues: 'Indices bamileke',
+    clueCount: (shown: number, total: number) => (shown < total ? `${shown} sur ${total} indices` : `${shown} indice${shown === 1 ? '' : 's'}`),
+    revealMore: 'Cliquez sur le bouton indice pour afficher une langue disponible de plus.',
+    correct: 'Correct.',
+    correctAnswer: (answer: string) => `Bonne reponse : ${answer}`,
+    nextRound: 'Tour suivant',
+  },
+} satisfies Record<UiLocale, Record<string, string | ((...args: never[]) => string)>>;
+
+function getBrowserUiLocale(): UiLocale {
+  if (typeof navigator === 'undefined') return 'french';
+  const browserLanguages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return browserLanguages[0]?.toLocaleLowerCase().startsWith('en') ? 'english' : 'french';
+}
 
 function SettingsPanel({
   id,
@@ -94,7 +184,8 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const [availableLanguages, setAvailableLanguages] = useState<LanguageOption[]>([]);
   const playableLanguages = availableLanguages.length ? availableLanguages : fallbackLanguages;
   const [knownLanguages, setKnownLanguages] = useState<string[]>([]);
-  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>('english');
+  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>('french');
+  const [uiLocale, setUiLocale] = useState<UiLocale>('french');
   const [isReady, setIsReady] = useState(false);
   const [round, setRound] = useState<GameRound | null>(null);
   const [choices, setChoices] = useState<string[]>([]);
@@ -119,15 +210,15 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const displayedClues = visibleClues.slice(0, Math.max(1, Math.min(revealedClueCount, visibleClues.length)));
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer && round ? selectedAnswer === round.correctAnswer : false;
-  const activeAnswerLanguage = round?.answerLanguage ?? preferredLanguage;
-  const clueCountLabel =
-    displayedClues.length < visibleClues.length
-      ? `${displayedClues.length} of ${visibleClues.length} clues`
-      : `${displayedClues.length} clue${displayedClues.length === 1 ? '' : 's'}`;
+  const t = UI_TEXT[uiLocale];
+  const clueCountLabel = t.clueCount(displayedClues.length, visibleClues.length);
 
   useEffect(() => {
     const storedKnownLanguages = window.localStorage.getItem(KNOWN_LANGUAGES_STORAGE_KEY);
     const storedPreferredLanguage = window.localStorage.getItem(PREFERRED_LANGUAGE_STORAGE_KEY);
+    const browserLocale = getBrowserUiLocale();
+    const browserUsesEnglish = browserLocale === 'english';
+    setUiLocale(browserLocale);
 
     if (storedKnownLanguages) {
       try {
@@ -138,8 +229,10 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
       }
     }
 
-    if (storedPreferredLanguage === 'english' || storedPreferredLanguage === 'french') {
+    if (browserUsesEnglish && (storedPreferredLanguage === 'english' || storedPreferredLanguage === 'french')) {
       setPreferredLanguage(storedPreferredLanguage);
+    } else {
+      setPreferredLanguage(browserUsesEnglish ? 'english' : 'french');
     }
     const storedPlayerId = window.localStorage.getItem(PLAYER_ID_STORAGE_KEY);
     if (storedPlayerId) {
@@ -249,7 +342,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;
       setRound(null);
       setChoices([]);
-      setMessage(payload?.message ?? 'No playable words found. Keep at least one Bamileke language available for clues.');
+      setMessage(payload?.message ? t.noPlayable : t.noPlayable);
       return;
     }
 
@@ -311,7 +404,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
           <div>
             <div className="inline-flex items-center gap-2 rounded-md border border-[#d4d8c8] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#355f4f] shadow-sm">
               <Gamepad2 className="h-4 w-4" />
-              Games
+              {t.navBadge}
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[#17211c] sm:text-5xl">
               MON UNIQUE LANGUE BAMILEKE (JEUX)
@@ -319,15 +412,15 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
           </div>
           <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#d8d6c8] bg-white p-3 shadow-sm">
             <div className="rounded-lg bg-[#edf3ef] px-3 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5f6a61]">Score</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5f6a61]">{t.score}</p>
               <p className="mt-1 text-3xl font-semibold text-[#1e5b47]">{score}</p>
             </div>
             <div className="rounded-lg bg-[#f6efe4] px-3 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6a6258]">Rounds</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6a6258]">{t.rounds}</p>
               <p className="mt-1 text-3xl font-semibold text-[#684d2e]">{attempts}</p>
             </div>
             <div className="rounded-lg bg-[#eef0f7] px-3 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5e6472]">Streak</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5e6472]">{t.streak}</p>
               <p className="mt-1 text-3xl font-semibold text-[#36466f]">{streak}</p>
             </div>
           </div>
@@ -338,8 +431,8 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
         <aside className="order-2 grid content-start gap-3 lg:order-1 lg:gap-4">
           <SettingsPanel
             id="languages"
-            title="Available languages"
-            summary={knownLanguages.length ? `${knownLanguages.length} excluded` : 'All clue languages active'}
+            title={t.availableLanguages}
+            summary={knownLanguages.length ? t.excludedSummary(knownLanguages.length) : t.allCluesActive}
             icon={<Languages className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
             isOpen={openMobileSections.includes('languages')}
             onToggle={toggleMobileSection}
@@ -350,7 +443,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                   onClick={clearKnownLanguages}
                   className="shrink-0 rounded-md border border-[#c9cabc] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#355f4f] hover:border-[#2f6b58]"
                 >
-                  Use all
+                  {t.useAll}
                 </button>
               ) : null
             }
@@ -361,11 +454,11 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 onClick={clearKnownLanguages}
                 className="mb-3 inline-flex h-10 w-full items-center justify-center rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold text-[#355f4f] hover:border-[#2f6b58] lg:hidden"
               >
-                Use all clue languages
+                {t.useAllClueLanguages}
               </button>
             ) : null}
             <p className="mt-2 text-sm font-medium leading-6 text-[#62685d]">
-              Select any available languages you want to <span className="font-bold text-[#b23b2e]">exclude</span> from the clue list.
+              {t.excludePromptStart} <span className="font-bold text-[#b23b2e]">{t.excludeWord}</span> {t.excludePromptEnd}
             </p>
             <div className="mt-4 flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1">
               {playableLanguages.map((language) => {
@@ -392,8 +485,8 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
 
           <SettingsPanel
             id="answers"
-            title="Answer language"
-            summary={preferredLanguage === 'english' ? 'English answers' : 'French answers'}
+            title={t.answerLanguage}
+            summary={preferredLanguage === 'english' ? t.englishAnswers : t.frenchAnswers}
             icon={<Gamepad2 className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
             isOpen={openMobileSections.includes('answers')}
             onToggle={toggleMobileSection}
@@ -411,7 +504,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                     preferredLanguage === language ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#465247] hover:bg-white'
                   }`}
                 >
-                  {language}
+                  {language === 'english' ? t.english : t.french}
                 </button>
               ))}
             </div>
@@ -419,13 +512,13 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
 
           <SettingsPanel
             id="music"
-            title="Background music"
-            summary="Soundtrack controls"
+            title={t.backgroundMusic}
+            summary={t.soundtrackControls}
             icon={<Music className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
             isOpen={openMobileSections.includes('music')}
             onToggle={toggleMobileSection}
           >
-            <GameBackgroundMusic embedded />
+            <GameBackgroundMusic embedded locale={uiLocale} />
           </SettingsPanel>
 
           <a
@@ -433,32 +526,32 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
             className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-[#c9cabc] bg-white px-4 text-sm font-semibold text-[#355f4f] shadow-sm hover:border-[#2f6b58]"
           >
             <BookOpen className="h-4 w-4" />
-            Learning resources
+            {t.learningResources}
           </a>
 
           <SettingsPanel
             id="profile"
-            title="Player profile"
-            summary={playerName.trim() || playerEmail.trim() ? 'Saved for leaderboard' : 'Optional leaderboard info'}
+            title={t.playerProfile}
+            summary={playerName.trim() || playerEmail.trim() ? t.savedForLeaderboard : t.optionalLeaderboardInfo}
             icon={<User className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
             isOpen={openMobileSections.includes('profile')}
             onToggle={toggleMobileSection}
           >
             <div className="mt-3 grid gap-3">
               <label className="grid gap-2 text-sm font-semibold text-[#30372f]">
-                Name
+                {t.name}
                 <span className="relative">
                   <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#687064]" />
                   <input
                     value={playerName}
                     onChange={(event) => setPlayerName(event.target.value)}
                     className="h-11 w-full rounded-md border border-[#d8d6c8] bg-[#fbfaf6] pl-10 pr-3 text-base font-medium outline-none transition focus:border-[#2f6b58] focus:bg-white focus:ring-4 focus:ring-[#2f6b58]/10"
-                    placeholder="Player name"
+                    placeholder={t.playerName}
                   />
                 </span>
               </label>
               <label className="grid gap-2 text-sm font-semibold text-[#30372f]">
-                Email
+                {t.email}
                 <span className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#687064]" />
                   <input
@@ -475,7 +568,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold text-[#355f4f] shadow-sm hover:border-[#2f6b58]"
               >
                 <BarChart3 className="h-4 w-4" />
-                Gamer leaderboard
+                {t.gamerLeaderboard}
               </a>
             </div>
           </SettingsPanel>
@@ -486,8 +579,8 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
             <div className="border-b border-[#e4e2d8] bg-[#fbfaf6] px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">Game 1</p>
-                  <h2 className="mt-1 text-2xl font-semibold text-[#17211c]">Choose the meaning</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">{t.gameOne}</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-[#17211c]">{t.chooseMeaning}</h2>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -496,7 +589,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold text-[#355f4f] shadow-sm hover:border-[#2f6b58]"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    Reset
+                    {t.reset}
                   </button>
                   <button
                     type="button"
@@ -504,7 +597,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#2f6b58] px-3 text-sm font-semibold text-white shadow-sm hover:bg-[#255645]"
                   >
                     <SkipForward className="h-4 w-4" />
-                    Skip
+                    {t.skip}
                   </button>
                 </div>
               </div>
@@ -520,7 +613,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                       onClick={clearKnownLanguages}
                       className="inline-flex h-10 items-center justify-center rounded-md bg-[#2f6b58] px-3 text-sm font-semibold text-white shadow-sm hover:bg-[#255645]"
                     >
-                      Use all clue languages
+                      {t.useAllClueLanguages}
                     </button>
                   ) : null}
                 </div>
@@ -535,7 +628,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 <>
                   <div className="rounded-xl border border-[#e1dfd4] bg-[#f7f8f3] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6c7268]">Bamileke clues</p>
+                      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6c7268]">{t.bamilekeClues}</p>
                       <button
                         type="button"
                         onClick={revealNextClue}
@@ -565,7 +658,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                       ))}
                     </div>
                     {displayedClues.length < visibleClues.length ? (
-                      <p className="mt-3 text-sm font-semibold text-[#355f4f]">Click the clue button to reveal one more available language.</p>
+                      <p className="mt-3 text-sm font-semibold text-[#355f4f]">{t.revealMore}</p>
                     ) : null}
                   </div>
 
@@ -608,7 +701,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                           {isCorrect ? <Trophy className="h-5 w-5" /> : <X className="h-5 w-5" />}
                         </span>
                         <p className="text-base font-semibold text-[#17211c]">
-                          {isCorrect ? 'Correct.' : `Correct answer: ${normalizeText(round.correctAnswer)}`}
+                          {isCorrect ? t.correct : t.correctAnswer(normalizeText(round.correctAnswer))}
                         </p>
                       </div>
                       <button
@@ -617,7 +710,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#2f6b58] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#255645]"
                       >
                         <SkipForward className="h-4 w-4" />
-                        Next round
+                        {t.nextRound}
                       </button>
                     </div>
                   ) : null}

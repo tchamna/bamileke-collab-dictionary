@@ -2,19 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { BarChart3, BookOpen, Gamepad2, GitCompareArrows, ShieldCheck, SquarePen } from 'lucide-react';
 
 const navItems = [
-  { href: '/', label: 'Contribute', icon: SquarePen },
-  { href: '/compare', label: 'Compare', icon: GitCompareArrows },
-  { href: '/games', label: 'Games', icon: Gamepad2 },
-  { href: '/resources', label: 'Resources', icon: BookOpen },
-  { href: '/leaderboard', label: 'Leaderboard', icon: BarChart3 },
-  { href: '/admin', label: 'Admin', icon: ShieldCheck },
+  { href: '/', labels: { english: 'Contribute', french: 'Contribuer' }, icon: SquarePen },
+  { href: '/compare', labels: { english: 'Compare', french: 'Comparer' }, icon: GitCompareArrows },
+  { href: '/games', labels: { english: 'Games', french: 'Jeux' }, icon: Gamepad2 },
+  { href: '/resources', labels: { english: 'Resources', french: 'Ressources' }, icon: BookOpen },
+  { href: '/leaderboard', labels: { english: 'Leaderboard', french: 'Classement' }, icon: BarChart3 },
+  { href: '/admin', labels: { english: 'Admin', french: 'Admin' }, icon: ShieldCheck },
 ];
 
 export function AppNav() {
   const pathname = usePathname();
+  const [locale, setLocale] = useState<'english' | 'french'>('french');
+
+  useEffect(() => {
+    const browserLanguages = navigator.languages?.length ? navigator.languages : [navigator.language];
+    setLocale(browserLanguages[0]?.toLocaleLowerCase().startsWith('en') ? 'english' : 'french');
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#d8d6c8] bg-[#fbfaf6]/95 shadow-sm backdrop-blur">
@@ -38,7 +45,7 @@ export function AppNav() {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
+                <span>{item.labels[locale]}</span>
               </Link>
             );
           })}
