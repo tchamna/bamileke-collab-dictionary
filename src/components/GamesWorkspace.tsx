@@ -313,10 +313,9 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
               <Gamepad2 className="h-4 w-4" />
               Games
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[#17211c] sm:text-5xl">Word Match</h1>
-            <p className="mt-3 max-w-3xl text-base font-medium leading-7 text-[#5c655b]">
-              Read the Bamileke clues, then choose the matching {activeAnswerLanguage === 'english' ? 'English' : 'French'} word.
-            </p>
+            <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[#17211c] sm:text-5xl">
+              MON UNIQUE LANGUE BAMILEKE (JEUX)
+            </h1>
           </div>
           <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#d8d6c8] bg-white p-3 shadow-sm">
             <div className="rounded-lg bg-[#edf3ef] px-3 py-3">
