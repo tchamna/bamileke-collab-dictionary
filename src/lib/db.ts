@@ -197,6 +197,10 @@ function normalizeOffset(value: number | undefined) {
   return Math.max(0, value ?? 0);
 }
 
+function isNumberLikeAnswer(value: string) {
+  return /^[+-]?\d+(?:[.,]\d+)?$/.test(value.trim());
+}
+
 export async function listWords(input: { language: string; q?: string; offset?: number; limit?: number }) {
   await ensureSchema();
   const limit = normalizeLimit(input.limit, 24);
@@ -446,16 +450,21 @@ export async function getWordMatchRound(input: {
         AND w.id <> $1
     ) answers
     ORDER BY random()
-    LIMIT 12
+    LIMIT 120
   `,
     [word.id]
   );
 
   const correctAnswer = answerLanguage === 'french' ? word.french : word.english;
+  const correctAnswerIsNumber = isNumberLikeAnswer(correctAnswer);
   const choices = [correctAnswer];
   for (const row of choicesResult.rows) {
     const answer = row.answer.trim();
-    if (answer && !choices.some((choice) => choice.toLocaleLowerCase() === answer.toLocaleLowerCase())) {
+    if (
+      answer &&
+      isNumberLikeAnswer(answer) === correctAnswerIsNumber &&
+      !choices.some((choice) => choice.toLocaleLowerCase() === answer.toLocaleLowerCase())
+    ) {
       choices.push(answer);
     }
     if (choices.length >= 4) break;
