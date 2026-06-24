@@ -14,6 +14,8 @@ npm run dev
 
 The import is an upsert pipeline. It inserts new base words and updates existing French/English/Nufi references without deleting contributor translations.
 
+Every real import creates a local JSON backup under `../db-backups` and then runs the GitHub Actions `postgres-backup.yml` workflow before changing the database. The GitHub workflow stores a compressed `pg_dump` as a downloadable Actions artifact. If either backup step fails, the import stops before any database write. Dry runs do not create backups.
+
 ## Environment
 
 Set `DATABASE_URL` to your Neon pooled PostgreSQL connection string. Prefer the pooler host and `sslmode=verify-full` for deployment.
