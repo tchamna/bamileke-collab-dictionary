@@ -79,6 +79,21 @@ export type GameTranslationClue = {
   translation: string;
 };
 
+const PLAYABLE_ANSWER_SQL = `
+  AND trim(w.french) !~* '^\\[[^\\]]+\\]'
+  AND trim(w.french) !~* '\\m(label|id_mafe|checkgroup|text_field|select_one|select_multiple|calculate|begin_group|end_group)\\M'
+`;
+
+function isPlayableAnswerSource(value: string) {
+  const normalized = normalizeAnswer(value);
+  if (!normalized) return false;
+  if (/^\[[^\]]+\]/i.test(normalized)) return false;
+  if (/\b(label|id_mafe|checkgroup|text_field|select_one|select_multiple|calculate|begin_group|end_group)\b/i.test(normalized)) {
+    return false;
+  }
+  return true;
+}
+
 function getDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -222,7 +237,7 @@ function normalizeAnswer(value: string) {
 
 async function translateFrenchToEnglish(sourceText: string) {
   const normalizedSource = normalizeAnswer(sourceText);
-  if (!normalizedSource || isNumberLikeAnswer(normalizedSource)) return normalizedSource;
+  if (!isPlayableAnswerSource(normalizedSource) || isNumberLikeAnswer(normalizedSource)) return normalizedSource;
 
   const pool = getPool();
   const cached = await pool.query<{ translated_text: string }>(
@@ -389,7 +404,7 @@ export async function getWordMatchRound(input: {
   const answerLanguage = input.preferredLanguage;
 
   const answerColumn = 'french';
-  const answerFilter = `AND trim(w.french) <> ''`;
+  const answerFilter = `AND trim(w.french) <> '' ${PLAYABLE_ANSWER_SQL}`;
 
   const wordResult = await pool.query<{
     id: number;
@@ -517,9 +532,11 @@ export async function getWordMatchRound(input: {
   const choices = [correctAnswer];
   for (const row of choicesResult.rows) {
     const sourceAnswer = normalizeAnswer(row.answer);
+    if (!isPlayableAnswerSource(sourceAnswer)) continue;
     const answer = answerLanguage === 'english' ? await translateFrenchToEnglish(sourceAnswer) : sourceAnswer;
     if (
       answer &&
+      isPlayableAnswerSource(answer) &&
       isNumberLikeAnswer(sourceAnswer) === correctAnswerIsNumber &&
       !choices.some((choice) => choice.toLocaleLowerCase() === answer.toLocaleLowerCase())
     ) {
@@ -550,6 +567,7 @@ export async function listPlayableGameLanguages() {
       FROM predefined_words w
       WHERE jsonb_array_length(w.nufi_json) > 0
         AND trim(w.french) <> ''
+        ${PLAYABLE_ANSWER_SQL}
     ),
     contribution_words AS (
       SELECT DISTINCT c.language, c.word_id
@@ -558,6 +576,7 @@ export async function listPlayableGameLanguages() {
       WHERE c.status <> 'rejected'
         AND trim(c.translation) <> ''
         AND trim(w.french) <> ''
+        ${PLAYABLE_ANSWER_SQL}
         AND c.language = ANY($1::text[])
     )
     SELECT language, COUNT(DISTINCT word_id)::int AS word_count
