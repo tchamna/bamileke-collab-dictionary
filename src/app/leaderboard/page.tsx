@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Award, Crown, Medal, Sparkles, Trophy } from 'lucide-react';
 import { listContributorLeaderboard, type ContributorLeaderboardRow } from '@/lib/db';
 
@@ -109,13 +108,7 @@ export default async function LeaderboardPage() {
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <Link
-                href="/"
-                className="inline-flex h-10 items-center justify-center rounded-md border border-[#c9c0ad] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm hover:border-[#295f4e]"
-              >
-                Formulaire de contribution
-              </Link>
-              <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#d8d0bd] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#667065] shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d8d0bd] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#667065] shadow-sm">
                 <Trophy className="h-4 w-4 text-[#c58a22]" />
                 Tableau d'honneur
               </div>
