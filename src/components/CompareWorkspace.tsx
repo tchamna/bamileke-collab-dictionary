@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Download, Eye, EyeOff, Search } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Eye, EyeOff, FileDown, Search } from 'lucide-react';
 import { customLanguageLabel, getLanguageLabel } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
@@ -445,7 +445,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               <table className="w-full min-w-[1320px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#e4e2d8] bg-[#fbfaf6]">
-                    <th className="w-16 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">CSV</th>
+                    <th className="sticky left-0 z-10 w-28 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">CSV</th>
                     <th className="w-64 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">English</th>
                     <th className="w-72 px-4 py-4 text-sm font-semibold text-[#111611]">French</th>
                     {comparisonLanguages.map((language) => (
@@ -463,15 +463,16 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                   </tr>
                   {data.rows.map((word) => (
                     <tr key={word.id} className="border-b border-[#ebe9df] last:border-b-0">
-                      <td className="bg-white px-4 py-5 align-top">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-5 align-top">
                         <button
                           type="button"
                           onClick={() => downloadWordCsv(word)}
                           aria-label={`Download ${word.french} CSV`}
                           title="Download CSV"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#c9cabc] bg-white text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#c9cabc] bg-white px-2.5 text-xs font-bold text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
                         >
-                          <Download className="h-4 w-4" />
+                          <FileDown className="h-4 w-4" />
+                          CSV
                         </button>
                       </td>
                       <td className="bg-white px-4 py-5 align-top">
@@ -514,9 +515,10 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                       onClick={() => downloadWordCsv(word)}
                       aria-label={`Download ${word.french} CSV`}
                       title="Download CSV"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-white text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-bold text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
                     >
-                      <Download className="h-5 w-5" />
+                      <FileDown className="h-5 w-5" />
+                      CSV
                     </button>
                   </div>
                 </div>
