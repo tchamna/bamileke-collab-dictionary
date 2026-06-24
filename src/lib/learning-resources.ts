@@ -12,6 +12,13 @@ export type LearningResource = {
 
 export const LEARNING_RESOURCES: LearningResource[] = [
   {
+    title: 'Shared learning files',
+    description: 'Open the Google Drive folder for additional Bamileke learning materials and shared documents.',
+    href: 'https://drive.google.com/drive/folders/1Lcs1Hj_wyu70XMbnMWdvFi78r02kWRkp',
+    action: 'Open folder',
+    category: 'Google Drive',
+  },
+  {
     title: 'African Polyglot',
     description: 'African language services, translation, localization, interpretation, and research.',
     href: 'https://african-polyglot.com/',
@@ -57,12 +64,5 @@ export const LEARNING_RESOURCES: LearningResource[] = [
     imageAlt: 'Udemy Yemba language phrasebook course',
     action: 'Get course',
     category: 'Course',
-  },
-  {
-    title: 'Shared learning files',
-    description: 'Open the Google Drive folder for additional Bamileke learning materials and shared documents.',
-    href: 'https://drive.google.com/drive/folders/1Lcs1Hj_wyu70XMbnMWdvFi78r02kWRkp',
-    action: 'Open folder',
-    category: 'Google Drive',
   },
 ];
