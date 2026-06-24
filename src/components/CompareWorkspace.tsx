@@ -442,11 +442,10 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
         ) : viewMode === 'horizontal' ? (
           <div className="overflow-hidden rounded-xl border border-[#d8d6c8] bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1320px] border-collapse text-left">
+              <table className="w-full min-w-[1220px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#e4e2d8] bg-[#fbfaf6]">
-                    <th className="sticky left-0 z-10 w-28 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">CSV</th>
-                    <th className="w-64 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">English</th>
+                    <th className="sticky left-0 z-10 w-64 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">English</th>
                     <th className="w-72 px-4 py-4 text-sm font-semibold text-[#111611]">French</th>
                     {comparisonLanguages.map((language) => (
                       <th key={language.id} className="min-w-48 px-4 py-4 text-sm font-semibold text-[#111611]">
@@ -457,25 +456,13 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 </thead>
                 <tbody>
                   <tr className="border-b border-[#ebe9df] bg-[#fbfaf6]">
-                    <td colSpan={3 + comparisonLanguages.length} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">
+                    <td colSpan={2 + comparisonLanguages.length} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">
                       {t.bamilekeVersions}
                     </td>
                   </tr>
                   {data.rows.map((word) => (
                     <tr key={word.id} className="border-b border-[#ebe9df] last:border-b-0">
                       <td className="sticky left-0 z-10 bg-white px-4 py-5 align-top">
-                        <button
-                          type="button"
-                          onClick={() => downloadWordCsv(word)}
-                          aria-label={`Download ${word.french} CSV`}
-                          title="Download CSV"
-                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#c9cabc] bg-white px-2.5 text-xs font-bold text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
-                        >
-                          <FileDown className="h-4 w-4" />
-                          CSV
-                        </button>
-                      </td>
-                      <td className="bg-white px-4 py-5 align-top">
                         <p className="text-lg font-semibold leading-snug text-[#111611]">{displayText(word.english)}</p>
                         <p className="mt-2 text-sm font-medium text-[#7a7f73]">
                           {word.contributionCount} {t.contributions}
