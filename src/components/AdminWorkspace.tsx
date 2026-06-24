@@ -26,6 +26,8 @@ type AdminResponse = {
   limit: number;
 };
 
+type BulkAction = 'approve' | 'reject' | 'delete';
+
 const PAGE_SIZE = 24;
 
 const adminActionText = {
@@ -205,7 +207,7 @@ export function AdminWorkspace() {
 
   function toggleVisibleSelections(checked: boolean) {
     const visibleIds = data.rows
-      .filter((row) => row.contributionId && row.status !== 'approved')
+      .filter((row) => row.contributionId)
       .map((row) => row.contributionId as number);
 
     setSelectedContributionIds((current) => {
@@ -218,36 +220,62 @@ export function AdminWorkspace() {
     });
   }
 
-  async function approveSelected() {
+  async function applySelectedAction(action: BulkAction) {
     const ids = [...selectedContributionIds];
     if (ids.length === 0) {
-      setMessage('Select at least one entry to approve.');
+      setMessage('Select at least one entry first.');
       return;
     }
 
-    const confirmed = window.confirm(`Approve ${ids.length} selected entr${ids.length === 1 ? 'y' : 'ies'}?`);
+    const actionLabels = {
+      approve: { verb: 'Approve', past: 'approved', error: 'approve' },
+      reject: { verb: 'Reject', past: 'rejected', error: 'reject' },
+      delete: { verb: 'Delete', past: 'deleted', error: 'delete' },
+    };
+    const label = actionLabels[action];
+    const detail =
+      action === 'delete'
+        ? ' This permanently removes the selected entries.'
+        : action === 'reject'
+          ? ' This removes contributor points and hides them from approved public results.'
+          : '';
+    const confirmed = window.confirm(`${label.verb} ${ids.length} selected entr${ids.length === 1 ? 'y' : 'ies'}?${detail}`);
     if (!confirmed) return;
 
     setMessage('');
     const response = await fetch('/api/admin/contributions/batch', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', ids }),
+      body: JSON.stringify({ action, ids }),
     });
     if (!response.ok) {
-      setMessage('Unable to approve selected entries.');
+      setMessage(`Unable to ${label.error} selected entries.`);
       return;
     }
 
     const payload = (await response.json()) as { updatedCount: number };
     setData((current) => ({
       ...current,
-      rows: current.rows.map((row) =>
-        row.contributionId && selectedContributionIds.has(row.contributionId) ? { ...row, status: 'approved' } : row
-      ),
+      rows: current.rows.map((row) => {
+        if (!row.contributionId || !selectedContributionIds.has(row.contributionId)) return row;
+        if (action === 'delete') {
+          return {
+            ...row,
+            rowKey: `w-${row.wordId}-${row.language}`,
+            contributionId: null,
+            translation: '',
+            synonyms: '',
+            contributorName: '',
+            notes: '',
+            status: 'pending',
+          };
+        }
+
+        return { ...row, status: action === 'approve' ? 'approved' : 'rejected' };
+      }),
     }));
     setSelectedContributionIds(new Set());
-    setMessage(`${payload.updatedCount} selected entr${payload.updatedCount === 1 ? 'y was' : 'ies were'} approved.`);
+    setMessage(`${payload.updatedCount} selected entr${payload.updatedCount === 1 ? 'y was' : 'ies were'} ${label.past}.`);
   }
 
   async function save(row: AdminWord) {
@@ -441,7 +469,7 @@ export function AdminWorkspace() {
   const showingGlobalContributorResults = Boolean(activeQuery && data.rows.some((row) => row.language !== language));
   const listHeaderLabel = showingGlobalContributorResults ? 'All matching languages' : selectedLanguageLabel;
   const selectedStatusStyles = selectedWord ? statusStyles(selectedWord.contributionId ? selectedWord.status : 'empty') : null;
-  const selectableRows = data.rows.filter((row) => row.contributionId && row.status !== 'approved');
+  const selectableRows = data.rows.filter((row) => row.contributionId);
   const pendingVisibleCount = data.rows.filter((row) => row.status === 'pending' && row.contributionId).length;
   const selectedVisibleCount = selectableRows.filter((row) => row.contributionId && selectedContributionIds.has(row.contributionId)).length;
   const allVisibleSelected = selectableRows.length > 0 && selectedVisibleCount === selectableRows.length;
@@ -563,7 +591,7 @@ export function AdminWorkspace() {
               </button>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3 border-b border-[#e3e3da] bg-white px-4 py-3">
+          <div className="flex flex-col gap-3 border-b border-[#e3e3da] bg-white px-4 py-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-[#344437]">
               <input
                 type="checkbox"
@@ -574,15 +602,35 @@ export function AdminWorkspace() {
               />
               Select page
             </label>
-            <button
-              type="button"
-              onClick={approveSelected}
-              disabled={selectedContributionIds.size === 0}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <CheckSquare className="h-4 w-4" />
-              Approve selected ({selectedContributionIds.size})
-            </button>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => applySelectedAction('approve')}
+                disabled={selectedContributionIds.size === 0}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <CheckSquare className="h-4 w-4" />
+                Approve ({selectedContributionIds.size})
+              </button>
+              <button
+                type="button"
+                onClick={() => applySelectedAction('reject')}
+                disabled={selectedContributionIds.size === 0}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#b9644f] bg-white px-3 text-sm font-semibold text-[#9b3d2f] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Ban className="h-4 w-4" />
+                Reject ({selectedContributionIds.size})
+              </button>
+              <button
+                type="button"
+                onClick={() => applySelectedAction('delete')}
+                disabled={selectedContributionIds.size === 0}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#b9644f] bg-[#fff7f4] px-3 text-sm font-semibold text-[#8e2f22] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete ({selectedContributionIds.size})
+              </button>
+            </div>
           </div>
           <div className="max-h-[calc(100vh-320px)] overflow-auto p-2">
             {data.rows.map((row) => {
@@ -606,7 +654,7 @@ export function AdminWorkspace() {
                       type="checkbox"
                       aria-label={`Select ${row.french}`}
                       checked={Boolean(row.contributionId && selectedContributionIds.has(row.contributionId))}
-                      disabled={!row.contributionId || row.status === 'approved'}
+                      disabled={!row.contributionId}
                       onChange={(event) => {
                         if (row.contributionId) toggleContributionSelection(row.contributionId, event.target.checked);
                       }}

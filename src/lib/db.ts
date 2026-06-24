@@ -975,6 +975,58 @@ export async function approveAdminContributions(ids: number[]) {
   return result.rowCount ?? 0;
 }
 
+export async function rejectAdminContributions(ids: number[]) {
+  await ensureSchema();
+  const uniqueIds = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  if (uniqueIds.length === 0) return 0;
+
+  const result = await getPool().query(
+    `
+    WITH targets AS (
+      SELECT word_id, language, translation, synonyms
+      FROM contributions
+      WHERE id = ANY($1::int[])
+    )
+    UPDATE contributions c
+    SET status = 'rejected'
+    FROM targets t
+    WHERE c.word_id = t.word_id
+      AND c.language = t.language
+      AND c.translation = t.translation
+      AND c.synonyms = t.synonyms
+      AND c.status <> 'rejected'
+  `,
+    [uniqueIds]
+  );
+
+  return result.rowCount ?? 0;
+}
+
+export async function deleteAdminContributions(ids: number[]) {
+  await ensureSchema();
+  const uniqueIds = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  if (uniqueIds.length === 0) return 0;
+
+  const result = await getPool().query(
+    `
+    WITH targets AS (
+      SELECT word_id, language, translation, synonyms
+      FROM contributions
+      WHERE id = ANY($1::int[])
+    )
+    DELETE FROM contributions c
+    USING targets t
+    WHERE c.word_id = t.word_id
+      AND c.language = t.language
+      AND c.translation = t.translation
+      AND c.synonyms = t.synonyms
+  `,
+    [uniqueIds]
+  );
+
+  return result.rowCount ?? 0;
+}
+
 export async function deleteAdminContribution(id: number) {
   await ensureSchema();
   const target = await getPool().query<{
