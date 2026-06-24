@@ -1,6 +1,17 @@
 import { ExternalLink } from 'lucide-react';
 import { LEARNING_RESOURCES } from '@/lib/learning-resources';
 
+function GoogleDriveMark() {
+  return (
+    <svg viewBox="0 0 96 84" aria-hidden="true" className="h-20 w-24 drop-shadow-sm">
+      <path d="M33.5 3h29L96 61H67L33.5 3Z" fill="#fbbc04" />
+      <path d="M0 61 33.5 3 48 28 29 61H0Z" fill="#34a853" />
+      <path d="M29 61h67L81.5 84H14.5L29 61Z" fill="#4285f4" />
+      <path d="M48 28 67 61H29L48 28Z" fill="#188038" opacity="0.78" />
+    </svg>
+  );
+}
+
 export default function ResourcesPage() {
   return (
     <main className="min-h-screen bg-[#f2f4ee] text-[#17211c]">
@@ -27,8 +38,9 @@ export default function ResourcesPage() {
                   href={resource.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex h-48 items-center justify-center bg-[#edf3ef] px-6 text-center text-2xl font-semibold text-[#295f4e]"
+                  className="flex h-48 flex-col items-center justify-center gap-3 bg-[#f7fafc] px-6 text-center text-2xl font-semibold text-[#295f4e]"
                 >
+                  <GoogleDriveMark />
                   {resource.title}
                 </a>
               )}
