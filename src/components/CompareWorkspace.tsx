@@ -53,6 +53,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
   const [showDates, setShowDates] = useState(false);
   const [viewMode, setViewMode] = useState<CompareView>('horizontal');
   const [message, setMessage] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const comparisonLanguages = useMemo(() => {
     const known = languages.filter((language) => language.id !== 'other');
@@ -122,6 +123,13 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
   }, [activeQuery, offset, t.unableToLoadComparison]);
 
   useEffect(() => {
+    fetch('/api/admin/session', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((payload: { authenticated?: boolean }) => setIsAdmin(Boolean(payload.authenticated)))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => {
       setOffset(0);
       setActiveQuery(query.trim());
@@ -134,6 +142,12 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     event.preventDefault();
     setOffset(0);
     setActiveQuery(query.trim());
+  }
+
+  function downloadFullComparisonCsv() {
+    const params = new URLSearchParams();
+    if (activeQuery) params.set('q', activeQuery);
+    window.location.href = `/api/admin/compare/export${params.size ? `?${params.toString()}` : ''}`;
   }
 
   function previousBatch() {
@@ -363,6 +377,16 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               </p>
             </div>
             <div className="flex flex-wrap gap-2 lg:self-end">
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={downloadFullComparisonCsv}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1f4b3d]"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Export full CSV
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setShowContributors((value) => !value)}
