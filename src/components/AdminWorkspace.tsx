@@ -592,43 +592,50 @@ export function AdminWorkspace() {
             </div>
           </div>
           <div className="flex flex-col gap-3 border-b border-[#e3e3da] bg-white px-4 py-3">
-            <label className="flex items-center gap-2 text-sm font-semibold text-[#344437]">
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                disabled={selectableRows.length === 0}
-                onChange={(event) => toggleVisibleSelections(event.target.checked)}
-                className="h-4 w-4 accent-[#295f4e]"
-              />
-              Select page
-            </label>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#344437]">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  disabled={selectableRows.length === 0}
+                  onChange={(event) => toggleVisibleSelections(event.target.checked)}
+                  className="h-4 w-4 shrink-0 accent-[#295f4e]"
+                />
+                <span className="truncate">Select page</span>
+              </label>
+              <span className="shrink-0 rounded-full bg-[#f1eee6] px-2.5 py-1 text-xs font-semibold text-[#5d665b]">
+                {selectedContributionIds.size} selected
+              </span>
+            </div>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-2">
               <button
                 type="button"
                 onClick={() => applySelectedAction('approve')}
                 disabled={selectedContributionIds.size === 0}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-3 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <CheckSquare className="h-4 w-4" />
-                Approve ({selectedContributionIds.size})
+                <CheckSquare className="h-4 w-4 shrink-0" />
+                <span className="truncate">Approve selected</span>
               </button>
               <button
                 type="button"
                 onClick={() => applySelectedAction('reject')}
                 disabled={selectedContributionIds.size === 0}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#b9644f] bg-white px-3 text-sm font-semibold text-[#9b3d2f] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c99a8d] bg-white text-[#9b3d2f] shadow-sm hover:bg-[#fff7f4] disabled:cursor-not-allowed disabled:opacity-40"
+                title="Reject selected"
+                aria-label="Reject selected"
               >
                 <Ban className="h-4 w-4" />
-                Reject ({selectedContributionIds.size})
               </button>
               <button
                 type="button"
                 onClick={() => applySelectedAction('delete')}
                 disabled={selectedContributionIds.size === 0}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#b9644f] bg-[#fff7f4] px-3 text-sm font-semibold text-[#8e2f22] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c99a8d] bg-[#fff7f4] text-[#8e2f22] shadow-sm hover:bg-[#ffede8] disabled:cursor-not-allowed disabled:opacity-40"
+                title="Delete selected"
+                aria-label="Delete selected"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete ({selectedContributionIds.size})
               </button>
             </div>
           </div>
