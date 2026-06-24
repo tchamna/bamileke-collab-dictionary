@@ -8,7 +8,7 @@ const MUSIC_ENABLED_STORAGE_KEY = 'bamilekeGameMusicEnabled';
 const BACKGROUND_VOLUME = 0.08;
 const CAPTURE = { capture: true };
 
-export function GameBackgroundMusic() {
+export function GameBackgroundMusic({ embedded = false }: { embedded?: boolean }) {
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -121,7 +121,7 @@ export function GameBackgroundMusic() {
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm">
+    <div className={`flex items-center justify-between gap-3 ${embedded ? '' : 'rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm'}`}>
       <div className="flex min-w-0 items-center gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#edf3ef] text-[#2f6b58]">
           <Music className="h-5 w-5" />

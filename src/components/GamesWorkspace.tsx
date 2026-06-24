@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, BookOpen, Check, Gamepad2, Languages, Mail, RotateCcw, SkipForward, Sparkles, Trophy, User, X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { BarChart3, BookOpen, Check, ChevronDown, Gamepad2, Languages, Mail, Music, RotateCcw, SkipForward, Sparkles, Trophy, User, X } from 'lucide-react';
 import { getLanguageLabel } from '@/lib/languages';
 import { GameBackgroundMusic } from '@/components/GameBackgroundMusic';
 
@@ -32,6 +33,50 @@ const PREFERRED_LANGUAGE_STORAGE_KEY = 'bamilekeGamePreferredLanguage';
 const PLAYER_ID_STORAGE_KEY = 'bamilekeGamePlayerId';
 const PLAYER_NAME_STORAGE_KEY = 'bamilekeGamePlayerName';
 const PLAYER_EMAIL_STORAGE_KEY = 'bamilekeGamePlayerEmail';
+type MobileSettingsSection = 'languages' | 'answers' | 'music' | 'profile';
+
+function SettingsPanel({
+  id,
+  title,
+  summary,
+  icon,
+  action,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  id: MobileSettingsSection;
+  title: string;
+  summary: string;
+  icon: ReactNode;
+  action?: ReactNode;
+  isOpen: boolean;
+  onToggle: (id: MobileSettingsSection) => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm">
+      <div className="hidden items-center justify-between gap-3 lg:flex">
+        <div className="flex min-w-0 items-center gap-2">
+          {icon}
+          <h2 className="truncate text-lg font-semibold text-[#17211c]">{title}</h2>
+        </div>
+        {action}
+      </div>
+      <button type="button" onClick={() => onToggle(id)} className="flex w-full items-center justify-between gap-3 text-left lg:hidden">
+        <span className="flex min-w-0 items-center gap-3">
+          {icon}
+          <span className="min-w-0">
+            <span className="block truncate text-base font-semibold text-[#17211c]">{title}</span>
+            <span className="block truncate text-xs font-medium text-[#62685d]">{summary}</span>
+          </span>
+        </span>
+        <ChevronDown className={`h-5 w-5 shrink-0 text-[#355f4f] transition ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`${isOpen ? 'block' : 'hidden'} mt-3 lg:block`}>{children}</div>
+    </section>
+  );
+}
 
 function shuffleItems<T>(values: T[]) {
   return [...values].sort(() => Math.random() - 0.5);
@@ -64,6 +109,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const [playerId, setPlayerId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [playerEmail, setPlayerEmail] = useState('');
+  const [openMobileSections, setOpenMobileSections] = useState<MobileSettingsSection[]>(['languages', 'answers']);
 
   const knownLanguageSet = useMemo(() => new Set(knownLanguages), [knownLanguages]);
   const visibleClues = useMemo(
@@ -153,12 +199,22 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
     return getLanguageLabel(languageId);
   }
 
+  function toggleMobileSection(section: MobileSettingsSection) {
+    setOpenMobileSections((current) => (current.includes(section) ? current.filter((item) => item !== section) : [...current, section]));
+  }
+
+  function closeMobileSection(section: MobileSettingsSection) {
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 1023px)').matches) return;
+    setOpenMobileSections((current) => current.filter((item) => item !== section));
+  }
+
   function toggleKnownLanguage(languageId: string) {
     setSelectedAnswer('');
     setLastQuestionLanguage(null);
     setKnownLanguages((current) =>
       current.includes(languageId) ? current.filter((item) => item !== languageId) : [...current, languageId]
     );
+    closeMobileSection('languages');
   }
 
   function clearKnownLanguages() {
@@ -166,6 +222,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
     setSelectedAnswer('');
     setLastQuestionLanguage(null);
     setMessage('');
+    closeMobileSection('languages');
   }
 
   async function loadRound(excludeCurrent = false) {
@@ -272,14 +329,16 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[330px_1fr] lg:px-8">
-        <aside className="grid content-start gap-4">
-          <div className="rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <Languages className="h-5 w-5 shrink-0 text-[#2f6b58]" />
-                <h2 className="truncate text-lg font-semibold text-[#17211c]">Available languages</h2>
-              </div>
-              {knownLanguages.length ? (
+        <aside className="order-2 grid content-start gap-3 lg:order-1 lg:gap-4">
+          <SettingsPanel
+            id="languages"
+            title="Available languages"
+            summary={knownLanguages.length ? `${knownLanguages.length} excluded` : 'All clue languages active'}
+            icon={<Languages className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
+            isOpen={openMobileSections.includes('languages')}
+            onToggle={toggleMobileSection}
+            action={
+              knownLanguages.length ? (
                 <button
                   type="button"
                   onClick={clearKnownLanguages}
@@ -287,8 +346,18 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 >
                   Use all
                 </button>
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
+            {knownLanguages.length ? (
+              <button
+                type="button"
+                onClick={clearKnownLanguages}
+                className="mb-3 inline-flex h-10 w-full items-center justify-center rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold text-[#355f4f] hover:border-[#2f6b58] lg:hidden"
+              >
+                Use all clue languages
+              </button>
+            ) : null}
             <p className="mt-2 text-sm font-medium leading-6 text-[#62685d]">
               Select any available languages you want to <span className="font-bold text-[#b23b2e]">exclude</span> from the clue list.
             </p>
@@ -313,16 +382,25 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 );
               })}
             </div>
-          </div>
+          </SettingsPanel>
 
-          <div className="rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#17211c]">Answer language</h2>
+          <SettingsPanel
+            id="answers"
+            title="Answer language"
+            summary={preferredLanguage === 'english' ? 'English answers' : 'French answers'}
+            icon={<Gamepad2 className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
+            isOpen={openMobileSections.includes('answers')}
+            onToggle={toggleMobileSection}
+          >
             <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-[#f2f4ee] p-1">
               {(['english', 'french'] as const).map((language) => (
                 <button
                   key={language}
                   type="button"
-                  onClick={() => setPreferredLanguage(language)}
+                  onClick={() => {
+                    setPreferredLanguage(language);
+                    closeMobileSection('answers');
+                  }}
                   className={`h-10 rounded-md text-sm font-semibold capitalize transition ${
                     preferredLanguage === language ? 'bg-[#2f6b58] text-white shadow-sm' : 'text-[#465247] hover:bg-white'
                   }`}
@@ -331,9 +409,18 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 </button>
               ))}
             </div>
-          </div>
+          </SettingsPanel>
 
-          <GameBackgroundMusic />
+          <SettingsPanel
+            id="music"
+            title="Background music"
+            summary="Soundtrack controls"
+            icon={<Music className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
+            isOpen={openMobileSections.includes('music')}
+            onToggle={toggleMobileSection}
+          >
+            <GameBackgroundMusic embedded />
+          </SettingsPanel>
 
           <a
             href="/resources"
@@ -343,8 +430,14 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
             Learning resources
           </a>
 
-          <div className="rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#17211c]">Player profile</h2>
+          <SettingsPanel
+            id="profile"
+            title="Player profile"
+            summary={playerName.trim() || playerEmail.trim() ? 'Saved for leaderboard' : 'Optional leaderboard info'}
+            icon={<User className="h-5 w-5 shrink-0 text-[#2f6b58]" />}
+            isOpen={openMobileSections.includes('profile')}
+            onToggle={toggleMobileSection}
+          >
             <div className="mt-3 grid gap-3">
               <label className="grid gap-2 text-sm font-semibold text-[#30372f]">
                 Name
@@ -379,10 +472,10 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                 Gamer leaderboard
               </a>
             </div>
-          </div>
+          </SettingsPanel>
         </aside>
 
-        <div className="grid gap-5">
+        <div className="order-1 grid gap-5 lg:order-2">
           <section className="overflow-hidden rounded-xl border border-[#d8d6c8] bg-white shadow-sm">
             <div className="border-b border-[#e4e2d8] bg-[#fbfaf6] px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
