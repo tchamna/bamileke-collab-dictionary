@@ -47,6 +47,8 @@ type ContributionResponse = {
 };
 
 const PAGE_SIZE = 50;
+const CONTRIBUTION_LANGUAGE_STORAGE_KEY = 'bamilekeContributionLanguage';
+const CONTRIBUTION_CUSTOM_LANGUAGE_STORAGE_KEY = 'bamilekeContributionCustomLanguage';
 const CONTRIBUTOR_NAME_STORAGE_KEY = 'bamilekeContributorName';
 const CONTRIBUTOR_EMAIL_STORAGE_KEY = 'bamilekeContributorEmail';
 type QueueMode = 'random' | 'sequential';
@@ -56,6 +58,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const t = useUiText();
   const [language, setLanguage] = useState('ghomala');
   const [customLanguage, setCustomLanguage] = useState('');
+  const [isLanguageReady, setIsLanguageReady] = useState(false);
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [offset, setOffset] = useState(0);
@@ -80,6 +83,8 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   const effectiveLanguage = language === 'other' ? customLanguageId || 'other' : language;
 
   useEffect(() => {
+    if (!isLanguageReady) return;
+
     const controller = new AbortController();
     setIsLoading(true);
     fetch(`/api/words?language=${encodeURIComponent(effectiveLanguage)}&q=${encodeURIComponent(activeQuery)}&offset=${offset}&limit=${PAGE_SIZE}`, {
@@ -104,7 +109,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
       .finally(() => setIsLoading(false));
 
     return () => controller.abort();
-  }, [effectiveLanguage, activeQuery, offset, t.unableToLoadWords]);
+  }, [effectiveLanguage, activeQuery, offset, t.unableToLoadWords, isLanguageReady]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -116,6 +121,16 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
   }, [query]);
 
   useEffect(() => {
+    const languageIds = new Set(languages.map((item) => item.id));
+    const storedLanguage = window.localStorage.getItem(CONTRIBUTION_LANGUAGE_STORAGE_KEY);
+    const storedCustomLanguage = window.localStorage.getItem(CONTRIBUTION_CUSTOM_LANGUAGE_STORAGE_KEY);
+
+    if (storedCustomLanguage) setCustomLanguage(storedCustomLanguage);
+    if (storedLanguage && (languageIds.has(storedLanguage) || storedLanguage === 'other')) {
+      setLanguage(storedLanguage);
+    }
+    setIsLanguageReady(true);
+
     const storedName = window.sessionStorage.getItem(CONTRIBUTOR_NAME_STORAGE_KEY);
     if (storedName) setContributorName(storedName);
     const storedEmail = window.sessionStorage.getItem(CONTRIBUTOR_EMAIL_STORAGE_KEY);
@@ -133,7 +148,18 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
         setContributorStats(payload);
       })
       .catch(() => undefined);
-  }, []);
+  }, [languages]);
+
+  useEffect(() => {
+    if (!isLanguageReady) return;
+
+    window.localStorage.setItem(CONTRIBUTION_LANGUAGE_STORAGE_KEY, language);
+    if (language === 'other' && customLanguage.trim()) {
+      window.localStorage.setItem(CONTRIBUTION_CUSTOM_LANGUAGE_STORAGE_KEY, customLanguage.trim());
+    } else if (language !== 'other') {
+      window.localStorage.removeItem(CONTRIBUTION_CUSTOM_LANGUAGE_STORAGE_KEY);
+    }
+  }, [language, customLanguage, isLanguageReady]);
 
   useEffect(() => {
     const trimmedName = contributorName.trim();
