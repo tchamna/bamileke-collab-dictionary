@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Award, ChevronLeft, ChevronRight, Download, Languages, LibraryBig, LogOut, Mail, Rows3, Save, Search, Shuffle, SkipForward, Sparkles } from 'lucide-react';
 import { customLanguageLabel, normalizeLanguageId } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
+import { SearchableSelect } from '@/components/SearchableSelect';
 
 type LanguageOption = {
   id: string;
@@ -81,6 +82,7 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
 
   const customLanguageId = normalizeLanguageId(customLanguage);
   const effectiveLanguage = language === 'other' ? customLanguageId || 'other' : language;
+  const languageOptions = useMemo(() => languages.map((item) => ({ value: item.id, label: item.label })), [languages]);
 
   useEffect(() => {
     if (!isLanguageReady) return;
@@ -390,26 +392,21 @@ export function ContributionWorkspace({ languages }: { languages: readonly Langu
               </div>
               <label className="grid gap-2 text-sm font-semibold text-[#30372f] md:min-w-80">
                 {t.contributionLanguage}
-                <span className="relative">
-                  <Languages className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#657263]" />
-                  <select
-                    value={language}
-                    onChange={(event) => {
-                      setLanguage(event.target.value);
-                      setOffset(0);
-                      setSelectedWordId(null);
-                      setTranslation('');
-                      setSynonyms('');
-                    }}
-                    className="h-14 w-full rounded-lg border border-[#c4bba8] bg-white pl-12 pr-4 text-base font-semibold text-[#20231f] shadow-sm outline-none transition focus:border-[#2f6b58] focus:ring-4 focus:ring-[#2f6b58]/10"
-                  >
-                    {languages.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </span>
+                <SearchableSelect
+                  value={language}
+                  options={languageOptions}
+                  onChange={(nextLanguage) => {
+                    setLanguage(nextLanguage);
+                    setOffset(0);
+                    setSelectedWordId(null);
+                    setTranslation('');
+                    setSynonyms('');
+                  }}
+                  ariaLabel={t.contributionLanguage}
+                  placeholder={t.contributionLanguage}
+                  className="h-14"
+                  icon={<Languages className="h-5 w-5" />}
+                />
                 {language === 'other' ? (
                   <input
                     value={customLanguage}

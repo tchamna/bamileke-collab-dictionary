@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Ban, CheckSquare, ChevronLeft, ChevronRight, Languages, LogOut, Save, Search, Shield, Trash2 } from 'lucide-react';
 import { LANGUAGES } from '@/lib/languages';
+import { SearchableSelect } from '@/components/SearchableSelect';
 
 type AdminWord = {
   rowKey: string;
@@ -91,6 +92,8 @@ function orderAdminRows(rows: AdminWord[]) {
     .sort((left, right) => adminRowOrder(left.row) - adminRowOrder(right.row) || left.index - right.index)
     .map((item) => item.row);
 }
+
+const languageOptions = LANGUAGES.map((item) => ({ value: item.id, label: item.label }));
 
 export function AdminWorkspace() {
   const [adminText, setAdminText] = useState(adminActionText.fr);
@@ -522,22 +525,19 @@ export function AdminWorkspace() {
           </div>
           <form onSubmit={search} className="grid gap-3 rounded-lg border border-[#d8d6c8] bg-white p-2 shadow-sm lg:grid-cols-[280px_1fr_auto]">
             <label className="relative">
-              <Languages className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69705f]" />
-              <select
+              <SearchableSelect
                 value={language}
-                onChange={(event) => {
-                  setLanguage(event.target.value);
+                options={languageOptions}
+                onChange={(nextLanguage) => {
+                  setLanguage(nextLanguage);
                   setOffset(0);
                   setSelectedRowKey(null);
                 }}
-                className="h-12 w-full rounded-md border border-transparent bg-[#fbfaf6] pl-12 pr-4 text-base font-semibold outline-none focus:border-[#295f4e]"
-              >
-                {LANGUAGES.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+                ariaLabel="Admin language"
+                placeholder="Search language..."
+                className="h-12"
+                icon={<Languages className="h-5 w-5" />}
+              />
             </label>
             <label className="relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#69705f]" />
@@ -773,15 +773,18 @@ export function AdminWorkspace() {
                 </label>
                 <label className="grid gap-1 text-sm font-semibold">
                   Status
-                  <select
+                  <SearchableSelect
                     value={selectedWord.status}
-                    onChange={(event) => updateLocal(selectedWord.rowKey, { status: event.target.value as AdminWord['status'] })}
-                    className="h-11 rounded-md border border-[#b8bcad] px-3 font-normal"
-                  >
-                    <option value="approved">approved</option>
-                    <option value="pending">pending</option>
-                    <option value="rejected">rejected</option>
-                  </select>
+                    options={[
+                      { value: 'approved', label: 'approved' },
+                      { value: 'pending', label: 'pending' },
+                      { value: 'rejected', label: 'rejected' },
+                    ]}
+                    onChange={(nextStatus) => updateLocal(selectedWord.rowKey, { status: nextStatus as AdminWord['status'] })}
+                    ariaLabel="Contribution status"
+                    placeholder="Search status..."
+                    className="h-11"
+                  />
                 </label>
                 <label className="grid gap-1 text-sm font-semibold">
                   Contributor
