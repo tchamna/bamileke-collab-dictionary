@@ -201,6 +201,8 @@ function isNumberLikeAnswer(value: string) {
   return /^[+-]?\d+(?:[.,]\d+)?$/.test(value.trim());
 }
 
+const MIN_ENGLISH_GAME_WORDS = 12;
+
 export async function listWords(input: { language: string; q?: string; offset?: number; limit?: number }) {
   await ensureSchema();
   const limit = normalizeLimit(input.limit, 24);
@@ -312,7 +314,65 @@ export async function getWordMatchRound(input: {
 
   const excludedLanguages = [...new Set(input.excludedLanguages ?? [])].filter(Boolean);
   const pool = getPool();
-  const answerLanguage = input.preferredLanguage;
+  let answerLanguage = input.preferredLanguage;
+
+  async function countCandidateWords(language: 'english' | 'french') {
+    const answerColumn = language === 'french' ? 'french' : 'english';
+    const answerFilter =
+      language === 'english'
+        ? `AND w.english ~ '[A-Za-z]' AND w.english !~ '[^A-Za-z0-9 ,;:()''".!?/&-]'`
+        : `AND trim(w.french) <> ''`;
+    const result = await pool.query<{ total: string }>(
+      `
+      WITH latest_contributions AS (
+        SELECT DISTINCT ON (word_id, language)
+          word_id,
+          language,
+          translation
+        FROM contributions
+        WHERE status <> 'rejected'
+          AND trim(translation) <> ''
+          AND NOT (language = ANY($1::text[]))
+          AND language = ANY($2::text[])
+        ORDER BY word_id, language, created_at DESC, id DESC
+      ),
+      candidate_clues AS (
+        SELECT w.id AS word_id
+        FROM predefined_words w
+        CROSS JOIN LATERAL jsonb_array_elements_text(w.nufi_json) AS nufi_value(translation)
+        WHERE 'nufi' <> ALL($1::text[])
+          AND trim(nufi_value.translation) <> ''
+          AND trim(w.${answerColumn}) <> ''
+          ${answerFilter}
+
+        UNION
+
+        SELECT w.id AS word_id
+        FROM predefined_words w
+        INNER JOIN latest_contributions lc ON lc.word_id = w.id
+        WHERE trim(w.${answerColumn}) <> ''
+          ${answerFilter}
+      )
+      SELECT COUNT(DISTINCT word_id)::text AS total
+      FROM candidate_clues
+      `,
+      [
+        excludedLanguages,
+        LANGUAGES.filter((languageOption) => languageOption.id !== 'other').map((languageOption) => languageOption.id),
+      ]
+    );
+
+    return Number(result.rows[0]?.total ?? 0);
+  }
+
+  let notice: string | undefined;
+  if (answerLanguage === 'english') {
+    const englishCandidateCount = await countCandidateWords('english');
+    if (englishCandidateCount < MIN_ENGLISH_GAME_WORDS) {
+      answerLanguage = 'french';
+      notice = 'English answer data is still limited for this language selection, so this round is using French answers.';
+    }
+  }
 
   const answerColumn = answerLanguage === 'french' ? 'french' : 'english';
   const answerFilter =
@@ -463,6 +523,7 @@ export async function getWordMatchRound(input: {
     correctAnswer,
     choices,
     answerLanguage,
+    notice,
   };
 }
 

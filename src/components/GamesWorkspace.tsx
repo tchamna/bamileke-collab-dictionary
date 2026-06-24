@@ -24,6 +24,7 @@ type GameRound = {
   correctAnswer: string;
   choices: string[];
   answerLanguage?: PreferredLanguage;
+  notice?: string;
 };
 
 const KNOWN_LANGUAGES_STORAGE_KEY = 'bamilekeGameKnownLanguages';
@@ -73,6 +74,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const displayedClues = isShowingAllClues ? visibleClues : primaryClue ? [primaryClue] : [];
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer && round ? selectedAnswer === round.correctAnswer : false;
+  const activeAnswerLanguage = round?.answerLanguage ?? preferredLanguage;
 
   useEffect(() => {
     const storedKnownLanguages = window.localStorage.getItem(KNOWN_LANGUAGES_STORAGE_KEY);
@@ -249,7 +251,7 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[#17211c] sm:text-5xl">Word Match</h1>
             <p className="mt-3 max-w-3xl text-base font-medium leading-7 text-[#5c655b]">
-              Read the Bamileke clues, then choose the matching {preferredLanguage === 'english' ? 'English' : 'French'} word.
+              Read the Bamileke clues, then choose the matching {activeAnswerLanguage === 'english' ? 'English' : 'French'} word.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#d8d6c8] bg-white p-3 shadow-sm">
@@ -423,6 +425,9 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                     </button>
                   ) : null}
                 </div>
+              ) : null}
+              {round?.notice ? (
+                <div className="rounded-md border border-[#e0d7b6] bg-[#fff9e8] px-4 py-3 text-sm font-semibold text-[#755c1a]">{round.notice}</div>
               ) : null}
 
               {isLoading ? (
