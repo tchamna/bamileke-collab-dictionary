@@ -78,6 +78,20 @@ function getLanguageLabel(languageId: string) {
   return LANGUAGES.find((item) => item.id === languageId)?.label ?? languageId;
 }
 
+function adminRowOrder(row: AdminWord) {
+  if (!row.contributionId) return 3;
+  if (row.status === 'pending') return 0;
+  if (row.status === 'rejected') return 1;
+  return 2;
+}
+
+function orderAdminRows(rows: AdminWord[]) {
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => adminRowOrder(left.row) - adminRowOrder(right.row) || left.index - right.index)
+    .map((item) => item.row);
+}
+
 export function AdminWorkspace() {
   const [adminText, setAdminText] = useState(adminActionText.fr);
   const [configured, setConfigured] = useState(true);
@@ -172,7 +186,7 @@ export function AdminWorkspace() {
       return;
     }
     const payload = (await response.json()) as AdminResponse;
-    setData(payload);
+    setData({ ...payload, rows: orderAdminRows(payload.rows) });
     setSelectedContributionIds((current) => {
       const visibleContributionIds = new Set(payload.rows.map((row) => row.contributionId).filter((id): id is number => Boolean(id)));
       return new Set([...current].filter((id) => visibleContributionIds.has(id)));
@@ -254,25 +268,28 @@ export function AdminWorkspace() {
     }
 
     const payload = (await response.json()) as { updatedCount: number };
+    const selectedIds = new Set(ids);
     setData((current) => ({
       ...current,
-      rows: current.rows.map((row) => {
-        if (!row.contributionId || !selectedContributionIds.has(row.contributionId)) return row;
-        if (action === 'delete') {
-          return {
-            ...row,
-            rowKey: `w-${row.wordId}-${row.language}`,
-            contributionId: null,
-            translation: '',
-            synonyms: '',
-            contributorName: '',
-            notes: '',
-            status: 'pending',
-          };
-        }
+      rows: orderAdminRows(
+        current.rows.map((row) => {
+          if (!row.contributionId || !selectedIds.has(row.contributionId)) return row;
+          if (action === 'delete') {
+            return {
+              ...row,
+              rowKey: `w-${row.wordId}-${row.language}`,
+              contributionId: null,
+              translation: '',
+              synonyms: '',
+              contributorName: '',
+              notes: '',
+              status: 'pending',
+            };
+          }
 
-        return { ...row, status: action === 'approve' ? 'approved' : 'rejected' };
-      }),
+          return { ...row, status: action === 'approve' ? 'approved' : 'rejected' };
+        })
+      ),
     }));
     setSelectedContributionIds(new Set());
     setMessage(`${payload.updatedCount} selected entr${payload.updatedCount === 1 ? 'y was' : 'ies were'} ${label.past}.`);
@@ -300,7 +317,16 @@ export function AdminWorkspace() {
     }
     const payload = (await response.json()) as { contributionId: number };
     const nextRowKey = `c-${payload.contributionId}`;
-    updateLocal(row.rowKey, { rowKey: nextRowKey, contributionId: payload.contributionId, language: row.language || language });
+    setData((current) => ({
+      ...current,
+      rows: orderAdminRows(
+        current.rows.map((item) =>
+          item.rowKey === row.rowKey
+            ? { ...item, rowKey: nextRowKey, contributionId: payload.contributionId, language: row.language || language, status: row.status }
+            : item
+        )
+      ),
+    }));
     setSelectedRowKey(nextRowKey);
     setMessage('Entry saved.');
     return true;
@@ -316,7 +342,6 @@ export function AdminWorkspace() {
     if (!confirmed) return;
 
     const rejectedRow = { ...row, status: 'rejected' as const };
-    updateLocal(row.rowKey, { status: 'rejected' });
     const saved = await save(rejectedRow);
     if (saved) setMessage('Entry discarded. Contributor points were reduced.');
   }
@@ -336,19 +361,21 @@ export function AdminWorkspace() {
     }
     setData((current) => ({
       ...current,
-      rows: current.rows.map((item) =>
-        item.rowKey === row.rowKey
-          ? {
-              ...item,
-              rowKey: `w-${item.wordId}-${item.language}`,
-              contributionId: null,
-              translation: '',
-              synonyms: '',
-              contributorName: '',
-              notes: '',
-              status: 'pending',
-            }
-          : item
+      rows: orderAdminRows(
+        current.rows.map((item) =>
+          item.rowKey === row.rowKey
+            ? {
+                ...item,
+                rowKey: `w-${item.wordId}-${item.language}`,
+                contributionId: null,
+                translation: '',
+                synonyms: '',
+                contributorName: '',
+                notes: '',
+                status: 'pending',
+              }
+            : item
+        )
       ),
     }));
     setMessage('Entry deleted.');
