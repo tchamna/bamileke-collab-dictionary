@@ -121,6 +121,10 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer && round ? selectedAnswer === round.correctAnswer : false;
   const activeAnswerLanguage = round?.answerLanguage ?? preferredLanguage;
+  const clueCountLabel =
+    !isShowingAllClues && visibleClues.length > 1
+      ? `1 of ${visibleClues.length} clues`
+      : `${displayedClues.length} clue${displayedClues.length === 1 ? '' : 's'}`;
 
   useEffect(() => {
     const storedKnownLanguages = window.localStorage.getItem(KNOWN_LANGUAGES_STORAGE_KEY);
@@ -530,10 +534,19 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                   <div className="rounded-xl border border-[#e1dfd4] bg-[#f7f8f3] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6c7268]">Bamileke clues</p>
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#d8d6c8] bg-white px-3 py-1 text-sm font-semibold text-[#355f4f]">
+                      <button
+                        type="button"
+                        onClick={() => setIsShowingAllClues(true)}
+                        disabled={visibleClues.length <= 1 || isShowingAllClues}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold transition ${
+                          visibleClues.length > 1 && !isShowingAllClues
+                            ? 'border-[#2f6b58] bg-white text-[#355f4f] hover:bg-[#edf3ef]'
+                            : 'border-[#d8d6c8] bg-white text-[#6c7268]'
+                        }`}
+                      >
                         <Sparkles className="h-4 w-4" />
-                        {displayedClues.length} clue{displayedClues.length === 1 ? '' : 's'}
-                      </span>
+                        {clueCountLabel}
+                      </button>
                     </div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       {displayedClues.map((clue, index) => (
