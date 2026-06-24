@@ -1,6 +1,9 @@
 name: Deploy to Azure Web App
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
