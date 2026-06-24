@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Check, Gamepad2, Languages, Mail, RotateCcw, SkipForward, Sparkles, Trophy, User, X } from 'lucide-react';
+import { BarChart3, Check, ExternalLink, Gamepad2, Languages, Mail, RotateCcw, SkipForward, Sparkles, Trophy, User, X } from 'lucide-react';
 import { getLanguageLabel } from '@/lib/languages';
 import { GameBackgroundMusic } from '@/components/GameBackgroundMusic';
 
@@ -31,6 +31,35 @@ const PREFERRED_LANGUAGE_STORAGE_KEY = 'bamilekeGamePreferredLanguage';
 const PLAYER_ID_STORAGE_KEY = 'bamilekeGamePlayerId';
 const PLAYER_NAME_STORAGE_KEY = 'bamilekeGamePlayerName';
 const PLAYER_EMAIL_STORAGE_KEY = 'bamilekeGamePlayerEmail';
+
+const LEARNING_RESOURCES = [
+  {
+    title: 'African Polyglot',
+    description: 'Learn more about African language services, translation, localization, interpretation, and research.',
+    href: 'https://african-polyglot.com/',
+    image: '/resources/african-polyglot-scan.png',
+    imageAlt: 'African Polyglot QR scan poster',
+    action: 'Visit website',
+  },
+  {
+    title: 'Comparative Study of the Bamileke Dialects',
+    description: "Étude Comparative des Variantes Dialectales de L'unique Langue Bamiléké Part I, Shck Tchamna, May 1, 2016.",
+    href: 'https://www.amazon.com/dp/1533014981',
+    image: '/resources/bamileke-book-scan.png',
+    imageAlt: 'Bamileke dialect comparative study book and QR code',
+    action: 'Get print book',
+    secondaryHref: 'https://www.amazon.com/dp/B08PG2T13P',
+    secondaryAction: 'Ebook',
+  },
+  {
+    title: 'Dictionnaire Nufi-Franc-Nufi',
+    description: 'Install the Nufi-French dictionary Android app from Google Play.',
+    href: 'https://play.google.com/store/apps/details?id=com.resulam.android.NufiTchamna_nufi_francais_nufi&hl=fr&pli=1',
+    image: '/resources/nufi-app-play-store.png',
+    imageAlt: 'Dictionnaire Nufi-Franc-Nufi Google Play listing',
+    action: 'Get app',
+  },
+];
 
 function shuffleItems<T>(values: T[]) {
   return [...values].sort(() => Math.random() - 0.5);
@@ -501,6 +530,56 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                   ) : null}
                 </>
               ) : null}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-[#d8d6c8] bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#74776d]">Resources</p>
+                <h2 className="mt-1 text-2xl font-semibold text-[#17211c]">Learn more</h2>
+              </div>
+              <p className="max-w-xl text-sm font-medium leading-6 text-[#62685d]">
+                Get more Bamileke learning materials from these external resources.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+              {LEARNING_RESOURCES.map((resource) => (
+                <article key={resource.title} className="overflow-hidden rounded-lg border border-[#d8d6c8] bg-[#fbfaf6]">
+                  <a href={resource.href} target="_blank" rel="noreferrer" className="block">
+                    <img src={resource.image} alt={resource.imageAlt} className="h-40 w-full object-cover" />
+                  </a>
+                  <div className="grid gap-3 p-4">
+                    <div>
+                      <h3 className="text-lg font-semibold leading-snug text-[#17211c]">{resource.title}</h3>
+                      <p className="mt-2 text-sm font-medium leading-6 text-[#62685d]">{resource.description}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={resource.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#2f6b58] px-3 text-sm font-semibold text-white shadow-sm hover:bg-[#255645]"
+                      >
+                        {resource.action}
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                      {resource.secondaryHref ? (
+                        <a
+                          href={resource.secondaryHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold text-[#355f4f] shadow-sm hover:border-[#2f6b58]"
+                        >
+                          {resource.secondaryAction}
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           </section>
         </div>
