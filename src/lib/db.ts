@@ -312,22 +312,7 @@ export async function getWordMatchRound(input: {
 
   const excludedLanguages = [...new Set(input.excludedLanguages ?? [])].filter(Boolean);
   const pool = getPool();
-  let answerLanguage = input.preferredLanguage;
-  if (input.preferredLanguage === 'english') {
-    const englishPoolResult = await pool.query<{ total: string }>(
-      `
-      SELECT COUNT(DISTINCT english)::text AS total
-      FROM predefined_words
-      WHERE trim(english) <> ''
-        AND english ~ '[A-Za-z]'
-        AND english !~ '[^A-Za-z0-9 ,;:()''".!?/&-]'
-    `
-    );
-
-    if (Number(englishPoolResult.rows[0]?.total ?? 0) < 12) {
-      answerLanguage = 'french';
-    }
-  }
+  const answerLanguage = input.preferredLanguage;
 
   const answerColumn = answerLanguage === 'french' ? 'french' : 'english';
   const answerFilter =

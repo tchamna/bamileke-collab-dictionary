@@ -193,9 +193,6 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
     }
 
     const payload = (await response.json()) as GameRound;
-    if (payload.answerLanguage && payload.answerLanguage !== preferredLanguage) {
-      setPreferredLanguage(payload.answerLanguage);
-    }
     setRound({
       ...payload,
       clues: payload.clues.filter((clue) => !knownLanguageSet.has(clue.language)),
