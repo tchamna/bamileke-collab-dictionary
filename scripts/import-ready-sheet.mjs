@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import xlsx from 'xlsx';
+import readXlsxFile from 'read-excel-file/node';
 
 const { Pool } = pg;
 
@@ -30,14 +30,16 @@ if (!fs.existsSync(workbookPath)) {
   process.exit(1);
 }
 
-const workbook = xlsx.readFile(workbookPath, { cellDates: false });
-const sheet = workbook.Sheets[importSheetName];
-if (!sheet) {
-  console.error(`Sheet "${importSheetName}" not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+let sheetRows;
+try {
+  sheetRows = await readXlsxFile(workbookPath, { sheet: importSheetName });
+} catch (error) {
+  console.error(`Sheet "${importSheetName}" could not be read from ${workbookPath}.`);
+  console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 }
 
-const workbookRows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+const workbookRows = rowsToObjects(sheetRows);
 const records = buildImportRecords(workbookRows);
 const pool = new Pool({
   connectionString: databaseUrl,
@@ -353,6 +355,14 @@ function buildImportRecords(rows) {
     .filter(Boolean);
 
   return assignImportKeys(mergeDuplicateFrenchRecords(baseRecords));
+}
+
+function rowsToObjects(rows) {
+  const [headers = [], ...dataRows] = rows;
+  const normalizedHeaders = headers.map((header) => normalizeCell(header));
+  return dataRows.map((row) =>
+    Object.fromEntries(normalizedHeaders.map((header, index) => [header, row[index] ?? '']))
+  );
 }
 
 function mergeDuplicateFrenchRecords(records) {
