@@ -73,7 +73,6 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
   const displayedClues = isShowingAllClues ? visibleClues : primaryClue ? [primaryClue] : [];
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer && round ? selectedAnswer === round.correctAnswer : false;
-  const clueLanguages = new Set(visibleClues.map((clue) => clue.language));
 
   useEffect(() => {
     const storedKnownLanguages = window.localStorage.getItem(KNOWN_LANGUAGES_STORAGE_KEY);
@@ -502,26 +501,6 @@ export function GamesWorkspace({ languages }: { languages: readonly LanguageOpti
                   ) : null}
                 </>
               ) : null}
-            </div>
-          </section>
-
-          <section className="grid gap-3 rounded-xl border border-[#d8d6c8] bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-[#17211c]">Current clue pool</p>
-            <div className="flex flex-wrap gap-2">
-              {playableLanguages.map((language) => (
-                <span
-                  key={language.id}
-                  className={`rounded-full border px-3 py-1 text-sm font-semibold ${
-                    knownLanguageSet.has(language.id)
-                      ? 'border-[#ded8c8] bg-[#f3efe6] text-[#8a867b]'
-                      : clueLanguages.has(language.id)
-                        ? 'border-[#2f6b58] bg-[#e8f2ed] text-[#1e5b47]'
-                        : 'border-[#d8d6c8] bg-[#fbfaf6] text-[#4d554e]'
-                  }`}
-                >
-                  {language.label}
-                </span>
-              ))}
             </div>
           </section>
         </div>
