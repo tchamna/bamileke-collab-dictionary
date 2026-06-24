@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, GitCompareArrows, ShieldCheck, SquarePen } from 'lucide-react';
+import { BarChart3, Gamepad2, GitCompareArrows, ShieldCheck, SquarePen } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Contribute', icon: SquarePen },
   { href: '/compare', label: 'Compare', icon: GitCompareArrows },
+  { href: '/games', label: 'Games', icon: Gamepad2 },
   { href: '/leaderboard', label: 'Leaderboard', icon: BarChart3 },
   { href: '/admin', label: 'Admin', icon: ShieldCheck },
 ];

@@ -1,4 +1,5 @@
 import { Award, Crown, Medal, Sparkles, Trophy } from 'lucide-react';
+import Link from 'next/link';
 import { listContributorLeaderboard, type ContributorLeaderboardRow } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -118,6 +119,14 @@ export default async function LeaderboardPage() {
               <p className="mt-4 max-w-2xl text-lg font-medium leading-8 text-[#62685d]">
                 Chaque contribution valide compte pour 50 points. Les entrees rejetees ne comptent pas dans le score.
               </p>
+              <div className="mt-5 inline-flex rounded-lg border border-[#d8d0bd] bg-white p-1 shadow-sm">
+                <Link href="/leaderboard" className="rounded-md bg-[#2f6b58] px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                  Contributeurs
+                </Link>
+                <Link href="/leaderboard/gamers" className="rounded-md px-4 py-2 text-sm font-semibold text-[#485047] hover:bg-[#f4f1e8]">
+                  Joueurs
+                </Link>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3 rounded-2xl border border-[#ddd6c5] bg-white p-3 shadow-sm sm:min-w-[420px]">
               <div className="rounded-xl bg-[#fbfaf6] p-4">
