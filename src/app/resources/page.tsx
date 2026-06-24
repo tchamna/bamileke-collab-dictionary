@@ -15,13 +15,20 @@ function GoogleDriveMark() {
 export default function ResourcesPage() {
   return (
     <main className="min-h-screen bg-[#f2f4ee] text-[#17211c]">
-      <section className="border-b border-[#d8d6c8] bg-[#fbfaf6]">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#355f4f]">Resources</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-normal text-[#17211c] sm:text-5xl">Bamileke learning resources</h1>
-          <p className="mt-3 max-w-3xl text-base font-medium leading-7 text-[#5c655b]">
-            Books, courses, apps, and language services for learners who want to go deeper after practicing in the game.
-          </p>
+      <section
+        className="relative overflow-hidden border-b border-[#1c2a32] bg-[#111820] bg-cover bg-center"
+        style={{ backgroundImage: "url('/resources/bamileke-motif-hero.png')" }}
+      >
+        <div className="absolute inset-0 bg-[#07110f]/55" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#07110f]/90 via-[#07110f]/60 to-[#07110f]/20" />
+        <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="max-w-4xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#f1d381]">Resources</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-normal text-white sm:text-6xl">Bamileke learning resources</h1>
+            <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#f7f0d7] sm:text-lg">
+              Books, courses, apps, and language services for learners who want to go deeper after practicing in the game.
+            </p>
+          </div>
         </div>
       </section>
 
