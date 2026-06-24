@@ -2,8 +2,8 @@ export type LearningResource = {
   title: string;
   description: string;
   href: string;
-  image: string;
-  imageAlt: string;
+  image?: string;
+  imageAlt?: string;
   action: string;
   category: string;
   secondaryHref?: string;
@@ -57,5 +57,12 @@ export const LEARNING_RESOURCES: LearningResource[] = [
     imageAlt: 'Udemy Yemba language phrasebook course',
     action: 'Get course',
     category: 'Course',
+  },
+  {
+    title: 'Shared learning files',
+    description: 'Open the Google Drive folder for additional Bamileke learning materials and shared documents.',
+    href: 'https://drive.google.com/drive/folders/1Lcs1Hj_wyu70XMbnMWdvFi78r02kWRkp',
+    action: 'Open folder',
+    category: 'Google Drive',
   },
 ];

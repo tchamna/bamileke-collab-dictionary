@@ -18,9 +18,20 @@ export default function ResourcesPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {LEARNING_RESOURCES.map((resource) => (
             <article key={resource.title} className="overflow-hidden rounded-xl border border-[#d8d6c8] bg-white shadow-sm">
-              <a href={resource.href} target="_blank" rel="noreferrer" className="block bg-[#ebe7dc]">
-                <img src={resource.image} alt={resource.imageAlt} className="h-48 w-full object-cover" />
-              </a>
+              {resource.image ? (
+                <a href={resource.href} target="_blank" rel="noreferrer" className="block bg-[#ebe7dc]">
+                  <img src={resource.image} alt={resource.imageAlt ?? resource.title} className="h-48 w-full object-cover" />
+                </a>
+              ) : (
+                <a
+                  href={resource.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-48 items-center justify-center bg-[#edf3ef] px-6 text-center text-2xl font-semibold text-[#295f4e]"
+                >
+                  {resource.title}
+                </a>
+              )}
               <div className="grid gap-4 p-4">
                 <div>
                   <span className="inline-flex rounded-full border border-[#d8d6c8] bg-[#fbfaf6] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#5e665f]">

@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Eye, EyeOff, FileDown, Search } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, FileDown, Search } from 'lucide-react';
 import { customLanguageLabel, getLanguageLabel } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
@@ -40,6 +40,7 @@ type CompareResponse = {
 };
 
 const PAGE_SIZE = 50;
+const ONBOARDING_FORM_URL = 'https://docs.google.com/forms/d/1qhk8UyLFAlLm9C2nqa27BP7sxzu2-Axt0iIkd6rBEi8/edit';
 type CompareView = 'horizontal' | 'vertical';
 
 export function CompareWorkspace({ languages }: { languages: readonly LanguageOption[] }) {
@@ -377,6 +378,15 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               </p>
             </div>
             <div className="flex flex-wrap gap-2 lg:self-end">
+              <a
+                href={ONBOARDING_FORM_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#295f4e] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1f4b3d]"
+              >
+                Onboarding form
+                <ExternalLink className="h-4 w-4" />
+              </a>
               {isAdmin ? (
                 <button
                   type="button"
