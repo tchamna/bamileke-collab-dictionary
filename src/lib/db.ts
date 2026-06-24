@@ -235,18 +235,19 @@ function normalizeAnswer(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-async function translateFrenchToEnglish(sourceText: string) {
+async function translateFrenchToEnglish(sourceText: string, timeoutMs = 1200) {
   const normalizedSource = normalizeAnswer(sourceText);
   if (!isPlayableAnswerSource(normalizedSource) || isNumberLikeAnswer(normalizedSource)) return normalizedSource;
 
   const pool = getPool();
-  const cached = await pool.query<{ translated_text: string }>(
+  const cached = await pool.query<{ translated_text: string; provider: string }>(
     `
-    SELECT translated_text
+    SELECT translated_text, provider
     FROM translation_cache
     WHERE source_language = 'fr'
       AND target_language = 'en'
       AND source_text = $1
+      AND provider <> 'fallback'
     LIMIT 1
     `,
     [normalizedSource]
@@ -256,7 +257,7 @@ async function translateFrenchToEnglish(sourceText: string) {
   if (cachedText) return cachedText;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let translatedText = '';
   try {
     const url = new URL('https://api.mymemory.translated.net/get');
@@ -271,23 +272,24 @@ async function translateFrenchToEnglish(sourceText: string) {
     clearTimeout(timeout);
   }
 
-  const finalText = translatedText || normalizedSource;
+  if (!translatedText) return normalizedSource;
+
   await pool
     .query(
       `
       INSERT INTO translation_cache (source_language, target_language, source_text, translated_text, provider, updated_at)
-      VALUES ('fr', 'en', $1, $2, $3, now())
+      VALUES ('fr', 'en', $1, $2, 'mymemory', now())
       ON CONFLICT (source_language, target_language, source_text)
       DO UPDATE SET
         translated_text = EXCLUDED.translated_text,
         provider = EXCLUDED.provider,
         updated_at = now()
       `,
-      [normalizedSource, finalText, translatedText ? 'mymemory' : 'fallback']
+      [normalizedSource, translatedText]
     )
     .catch(() => undefined);
 
-  return finalText;
+  return translatedText;
 }
 
 export async function listWords(input: { language: string; q?: string; offset?: number; limit?: number }) {
@@ -527,17 +529,30 @@ export async function getWordMatchRound(input: {
   );
 
   const correctSourceAnswer = word.french;
-  const correctAnswer = answerLanguage === 'english' ? await translateFrenchToEnglish(correctSourceAnswer) : correctSourceAnswer;
   const correctAnswerIsNumber = isNumberLikeAnswer(correctSourceAnswer);
-  const choices = [correctAnswer];
+  const sourceChoices = [correctSourceAnswer];
   for (const row of choicesResult.rows) {
     const sourceAnswer = normalizeAnswer(row.answer);
     if (!isPlayableAnswerSource(sourceAnswer)) continue;
-    const answer = answerLanguage === 'english' ? await translateFrenchToEnglish(sourceAnswer) : sourceAnswer;
+    if (
+      isNumberLikeAnswer(sourceAnswer) === correctAnswerIsNumber &&
+      !sourceChoices.some((choice) => choice.toLocaleLowerCase() === sourceAnswer.toLocaleLowerCase())
+    ) {
+      sourceChoices.push(sourceAnswer);
+    }
+    if (sourceChoices.length >= 10) break;
+  }
+
+  const translatedChoices =
+    answerLanguage === 'english'
+      ? await Promise.all(sourceChoices.map((sourceAnswer) => translateFrenchToEnglish(sourceAnswer)))
+      : sourceChoices;
+  const correctAnswer = translatedChoices[0] ?? correctSourceAnswer;
+  const choices = [correctAnswer];
+  for (const answer of translatedChoices.slice(1)) {
     if (
       answer &&
       isPlayableAnswerSource(answer) &&
-      isNumberLikeAnswer(sourceAnswer) === correctAnswerIsNumber &&
       !choices.some((choice) => choice.toLocaleLowerCase() === answer.toLocaleLowerCase())
     ) {
       choices.push(answer);
