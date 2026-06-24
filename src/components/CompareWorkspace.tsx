@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Eye, EyeOff, Search } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, Download, Eye, EyeOff, Search } from 'lucide-react';
 import { customLanguageLabel, getLanguageLabel } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
@@ -98,6 +98,8 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     });
   }, [data.rows, languages]);
   const pageEnd = Math.min(offset + data.rows.length, data.total);
+  const canGoPrevious = offset > 0;
+  const canGoNext = offset + PAGE_SIZE < data.total;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -132,6 +134,85 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     event.preventDefault();
     setOffset(0);
     setActiveQuery(query.trim());
+  }
+
+  function previousBatch() {
+    setOffset((current) => Math.max(0, current - PAGE_SIZE));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function nextBatch() {
+    setOffset((current) => current + PAGE_SIZE);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function normalizeEntry(value: string) {
+    return value
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/(^|[.!?]\s+)(\p{Ll})/gu, (_match, prefix: string, letter: string) => `${prefix}${letter.toLocaleUpperCase()}`);
+  }
+
+  function displayText(value: string | undefined) {
+    const normalized = normalizeEntry(value ?? '');
+    return normalized || '-';
+  }
+
+  function displayList(values: string[]) {
+    return values.map(normalizeEntry).filter(Boolean).join(' / ') || '-';
+  }
+
+  function csvValue(value: unknown) {
+    const text = value === null || value === undefined ? '' : String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function csvRow(values: unknown[]) {
+    return values.map(csvValue).join(',');
+  }
+
+  function fileSafe(value: string) {
+    return normalizeEntry(value)
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'comparison-card';
+  }
+
+  function languageLabel(languageId: string) {
+    const label = getLanguageLabel(languageId);
+    return label === languageId ? customLanguageLabel(languageId) : label;
+  }
+
+  function downloadWordCsv(word: ComparisonWord) {
+    const header = ['word_id', 'french', 'english', 'language', 'translation', 'synonyms', 'status', 'contributor', 'submitted_at', 'notes'];
+    const rows = [
+      csvRow(header),
+      csvRow([word.id, displayText(word.french), displayText(word.english), "Fe'efe'e (Nufi)", displayList(word.nufi), '', 'reference', '', '', t.nufiImportReference]),
+      ...word.contributions.map((contribution) =>
+        csvRow([
+          word.id,
+          displayText(word.french),
+          displayText(word.english),
+          languageLabel(contribution.language),
+          displayText(contribution.translation),
+          displayText(contribution.synonyms),
+          contribution.status,
+          contribution.contributorName.trim() || contribution.contributorEmail.trim(),
+          formatContributionDate(contribution),
+          displayText(contribution.notes),
+        ])
+      ),
+    ];
+    const blob = new Blob([`\uFEFF${rows.join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `comparison-${word.id}-${fileSafe(word.french)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   function contributionTime(contribution: ComparisonContribution | undefined) {
@@ -182,7 +263,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
         if (showContributors && showDates) return `${name} · ${date}`;
         if (showContributors) return name;
         if (showDates) return date;
-        return contribution.notes || '-';
+        return displayText(contribution.notes);
       })
       .join('\n');
   }
@@ -199,7 +280,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     if (language.id === 'nufi') {
       return (
         <div className="grid gap-1">
-          <p className="text-base font-semibold leading-snug text-[#20231f]">{word.nufi.join(' / ') || '-'}</p>
+          <p className="text-base font-semibold leading-snug text-[#20231f]">{displayList(word.nufi)}</p>
           <p className="text-xs font-medium text-[#7a7f73]">{t.nufiImportReference}</p>
         </div>
       );
@@ -212,19 +293,19 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
     return (
       <div className="grid gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-base font-semibold leading-snug text-[#20231f]">{contribution.translation}</p>
+          <p className="text-base font-semibold leading-snug text-[#20231f]">{displayText(contribution.translation)}</p>
           {contribution.status === 'pending' ? (
             <span className="rounded-full border border-[#d7b867] bg-[#fff8df] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#7a5a09]">
               {t.pending}
             </span>
           ) : null}
         </div>
-        {contribution.synonyms ? <p className="text-xs leading-snug text-[#62685d]">{contribution.synonyms}</p> : null}
+        {contribution.synonyms ? <p className="text-xs leading-snug text-[#62685d]">{displayText(contribution.synonyms)}</p> : null}
         {pendingCorrection ? (
           <div className="rounded-md border border-[#eadca9] bg-[#fffaf0] px-2.5 py-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7a5a09]">{t.pendingCorrection}</p>
-            <p className="mt-1 text-sm font-semibold leading-snug text-[#20231f]">{pendingCorrection.translation}</p>
-            {pendingCorrection.synonyms ? <p className="mt-1 text-xs leading-snug text-[#62685d]">{pendingCorrection.synonyms}</p> : null}
+            <p className="mt-1 text-sm font-semibold leading-snug text-[#20231f]">{displayText(pendingCorrection.translation)}</p>
+            {pendingCorrection.synonyms ? <p className="mt-1 text-xs leading-snug text-[#62685d]">{displayText(pendingCorrection.synonyms)}</p> : null}
             {showContributors || showDates ? (
               <p className="mt-1 text-xs font-medium text-[#7a7f73]">{contributionMeta(pendingCorrection)}</p>
             ) : null}
@@ -233,6 +314,31 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
         {showContributors || showDates ? (
           <p className="text-xs font-medium text-[#7a7f73]">{contributionMeta(contribution)}</p>
         ) : null}
+      </div>
+    );
+  }
+
+  function batchControls(location: 'top' | 'bottom') {
+    return (
+      <div className="flex gap-2" aria-label={`${location} ${t.comparison}`}>
+        <button
+          type="button"
+          onClick={previousBatch}
+          disabled={!canGoPrevious}
+          aria-label={t.previousPage}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={nextBatch}
+          disabled={!canGoNext}
+          aria-label={t.nextPage}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
     );
   }
@@ -320,26 +426,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 </button>
               ))}
             </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                disabled={offset === 0}
-                aria-label={t.previousPage}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setOffset(offset + PAGE_SIZE)}
-                disabled={offset + PAGE_SIZE >= data.total}
-                aria-label={t.nextPage}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-[#fbfaf6] text-[#344437] transition hover:border-[#295f4e] disabled:opacity-40"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
+            {batchControls('top')}
           </div>
         </div>
 
@@ -358,6 +445,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               <table className="w-full min-w-[1320px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#e4e2d8] bg-[#fbfaf6]">
+                    <th className="w-16 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">CSV</th>
                     <th className="w-64 bg-[#f4f3ed] px-4 py-4 text-sm font-semibold text-[#111611]">English</th>
                     <th className="w-72 px-4 py-4 text-sm font-semibold text-[#111611]">French</th>
                     {comparisonLanguages.map((language) => (
@@ -369,19 +457,30 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                 </thead>
                 <tbody>
                   <tr className="border-b border-[#ebe9df] bg-[#fbfaf6]">
-                    <td colSpan={2 + comparisonLanguages.length} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">
+                    <td colSpan={3 + comparisonLanguages.length} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">
                       {t.bamilekeVersions}
                     </td>
                   </tr>
                   {data.rows.map((word) => (
                     <tr key={word.id} className="border-b border-[#ebe9df] last:border-b-0">
                       <td className="bg-white px-4 py-5 align-top">
-                        <p className="text-lg font-semibold leading-snug text-[#111611]">{word.english || '-'}</p>
+                        <button
+                          type="button"
+                          onClick={() => downloadWordCsv(word)}
+                          aria-label={`Download ${word.french} CSV`}
+                          title="Download CSV"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#c9cabc] bg-white text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </td>
+                      <td className="bg-white px-4 py-5 align-top">
+                        <p className="text-lg font-semibold leading-snug text-[#111611]">{displayText(word.english)}</p>
                         <p className="mt-2 text-sm font-medium text-[#7a7f73]">
                           {word.contributionCount} {t.contributions}
                         </p>
                       </td>
-                      <td className="px-4 py-5 align-top text-base font-medium leading-snug text-[#62685d]">{word.french}</td>
+                      <td className="px-4 py-5 align-top text-base font-medium leading-snug text-[#62685d]">{displayText(word.french)}</td>
                       {comparisonLanguages.map((language) => (
                         <td key={language.id} className="px-4 py-5 align-top">
                           {renderLanguageCell(word, language)}
@@ -397,17 +496,28 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
           <div className="grid gap-5">
             {data.rows.map((word) => (
               <article key={word.id} className="overflow-hidden rounded-xl border border-[#d8d6c8] bg-white shadow-sm">
-                <div className="grid border-b border-[#ebe9df] bg-[#fbfaf6] md:grid-cols-2">
+                <div className="grid border-b border-[#ebe9df] bg-[#fbfaf6] md:grid-cols-[1fr_1fr_auto]">
                   <div className="border-b border-[#ebe9df] px-5 py-4 md:border-b-0 md:border-r">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">{t.english}</p>
-                    <p className="mt-2 text-xl font-semibold leading-snug text-[#111611]">{word.english || '-'}</p>
+                    <p className="mt-2 text-xl font-semibold leading-snug text-[#111611]">{displayText(word.english)}</p>
                     <p className="mt-2 text-sm font-medium text-[#7a7f73]">
                       {word.contributionCount} {t.contributions}
                     </p>
                   </div>
-                  <div className="px-5 py-4">
+                  <div className="border-b border-[#ebe9df] px-5 py-4 md:border-b-0 md:border-r">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#777d72]">{t.french}</p>
-                    <p className="mt-2 text-xl font-semibold leading-snug text-[#111611]">{word.french}</p>
+                    <p className="mt-2 text-xl font-semibold leading-snug text-[#111611]">{displayText(word.french)}</p>
+                  </div>
+                  <div className="flex items-start justify-end px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => downloadWordCsv(word)}
+                      aria-label={`Download ${word.french} CSV`}
+                      title="Download CSV"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#c9cabc] bg-white text-[#295f4e] shadow-sm transition hover:border-[#295f4e] hover:bg-[#f4f8f5]"
+                    >
+                      <Download className="h-5 w-5" />
+                    </button>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -435,7 +545,7 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
                                 ? t.nufiImportReference
                                 : showContributors || showDates
                                   ? contributionDetailsForLanguage(word, language.id)
-                                  : contribution?.notes || '-'}
+                                  : displayText(contribution?.notes)}
                             </td>
                           </tr>
                         );
@@ -447,6 +557,12 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
             ))}
           </div>
         )}
+        {!isLoading && data.rows.length > 0 ? (
+          <div className="mt-5 flex flex-col gap-3 rounded-lg border border-[#d8d6c8] bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-[#5e6459]">{`${offset + 1}-${pageEnd} ${t.of} ${data.total}`}</p>
+            {batchControls('bottom')}
+          </div>
+        ) : null}
       </section>
     </main>
   );

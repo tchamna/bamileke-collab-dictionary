@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -10,12 +11,14 @@ const { Pool } = pg;
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const skipGithubBackup = args.includes('--skip-github-backup') || process.env.SKIP_GITHUB_BACKUP === '1';
 const workbookArg = args.find((arg) => !arg.startsWith('--'));
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const defaultWorkbook = path.resolve(repoRoot, '..', 'nufi_dictionary_transformed - Current.xlsx');
 const workbookPath = workbookArg ? path.resolve(workbookArg) : defaultWorkbook;
 const databaseUrl = process.env.DATABASE_URL;
 const importSheetName = 'Ready';
+const backupDir = path.resolve(repoRoot, '..', 'db-backups');
 
 if (!databaseUrl) {
   console.error('DATABASE_URL is required. Use your Neon pooled PostgreSQL connection string.');
@@ -41,6 +44,17 @@ const pool = new Pool({
   max: 2,
   ssl: { rejectUnauthorized: false },
 });
+
+if (!dryRun) {
+  const backupPath = await backupDatabase();
+  console.log(`Database backup created: ${backupPath}`);
+  if (skipGithubBackup) {
+    console.log('GitHub backup workflow skipped by --skip-github-backup / SKIP_GITHUB_BACKUP=1.');
+  } else {
+    const runUrl = await createGithubBackup();
+    console.log(`GitHub backup artifact created by workflow run: ${runUrl}`);
+  }
+}
 
 await ensureSchema();
 
@@ -165,6 +179,91 @@ console.log(`${dryRun ? 'Dry run' : 'Upsert'} completed for ${importSheetName} s
 console.table(stats);
 if (stats.staleDatabaseRows > 0) {
   console.log('Stale database rows were left untouched. Contributions remain attached to their existing base words.');
+}
+
+async function backupDatabase() {
+  fs.mkdirSync(backupDir, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(backupDir, `neon-before-ready-import-${timestamp}.json`);
+  const tables = {};
+
+  const tableRows = (
+    await pool.query(
+      `
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `
+    )
+  ).rows;
+
+  for (const { table_name: tableName } of tableRows) {
+    tables[tableName] = (await pool.query(`SELECT * FROM ${quoteIdentifier(tableName)} ORDER BY 1`)).rows;
+  }
+
+  fs.writeFileSync(
+    backupPath,
+    JSON.stringify(
+      {
+        createdAt: new Date().toISOString(),
+        database: databaseUrl.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:***@'),
+        tables,
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+
+  return backupPath;
+}
+
+async function createGithubBackup() {
+  const workflowFile = 'postgres-backup.yml';
+  const branch = execFileSync('git', ['branch', '--show-current'], { cwd: repoRoot, encoding: 'utf8' }).trim() || 'main';
+  const startedAt = new Date();
+
+  try {
+    execFileSync('gh', ['workflow', 'run', workflowFile, '--ref', branch], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    throw new Error(`Could not start GitHub backup workflow before import. Ensure gh is installed and authenticated. ${error.stderr ?? error.message}`);
+  }
+
+  const run = await findStartedGithubRun(workflowFile, startedAt);
+  console.log(`Waiting for GitHub backup workflow run ${run.databaseId} to finish...`);
+
+  try {
+    execFileSync('gh', ['run', 'watch', String(run.databaseId), '--exit-status', '--interval', '10'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    throw new Error(`GitHub backup workflow failed before import. Database was not modified. ${error.stderr ?? error.message}`);
+  }
+
+  return run.url;
+}
+
+async function findStartedGithubRun(workflowFile, startedAt) {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    const output = execFileSync(
+      'gh',
+      ['run', 'list', '--workflow', workflowFile, '--event', 'workflow_dispatch', '--limit', '10', '--json', 'databaseId,createdAt,url'],
+      { cwd: repoRoot, encoding: 'utf8' }
+    );
+    const runs = JSON.parse(output);
+    const run = runs
+      .filter((item) => Date.parse(item.createdAt) >= startedAt.getTime() - 5_000)
+      .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0];
+    if (run) return run;
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+  }
+
+  throw new Error('Could not find the GitHub backup workflow run after starting it. Database was not modified.');
 }
 
 async function ensureSchema() {
@@ -364,14 +463,16 @@ function findExistingRecord(record, existingByImportKey, existingByComputedKey, 
   const computed = existingByComputedKey.get(record.importKey);
   if (computed && !touchedIds.has(computed.id)) return computed;
 
-  const sourceRowMatches = (existingBySourceRow.get(record.sourceRow) ?? []).filter((row) => !touchedIds.has(row.id));
-  if (sourceRowMatches.length === 1) return sourceRowMatches[0];
-
   const frenchMatches = (existingByFrench.get(normalizeForKey(record.french)) ?? []).filter((row) => !touchedIds.has(row.id));
   if (frenchMatches.length === 1) return frenchMatches[0];
 
   const sameNufi = frenchMatches.filter((row) => JSON.stringify(row.nufi_json) === JSON.stringify(record.nufiValues));
   if (sameNufi.length === 1) return sameNufi[0];
+
+  const sourceRowMatches = (existingBySourceRow.get(record.sourceRow) ?? []).filter((row) => !touchedIds.has(row.id));
+  if (sourceRowMatches.length === 1 && normalizeForKey(sourceRowMatches[0].french) === normalizeForKey(record.french)) {
+    return sourceRowMatches[0];
+  }
 
   return null;
 }
@@ -379,6 +480,10 @@ function findExistingRecord(record, existingByImportKey, existingByComputedKey, 
 function buildNaturalKey(row) {
   const raw = normalizeForKey(row.french);
   return crypto.createHash('sha1').update(raw).digest('hex');
+}
+
+function quoteIdentifier(value) {
+  return `"${String(value).replace(/"/g, '""')}"`;
 }
 
 function normalizeForKey(value) {
