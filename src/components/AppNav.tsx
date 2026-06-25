@@ -27,8 +27,7 @@ export function AppNav() {
     <header className="sticky top-0 z-50 border-b border-[#d8d6c8] bg-[#fbfaf6]/95 shadow-sm backdrop-blur">
       <nav className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2 sm:px-6 lg:px-8" aria-label="Main navigation">
         <Link href="/" className="mr-auto min-w-0 text-sm font-black uppercase tracking-[0.18em] text-[#295f4e]">
-          <span className="hidden sm:inline">Bamileke Dictionary</span>
-          <span className="sm:hidden">Dictionary</span>
+          <span className="hidden md:inline">Bamileke Dictionary</span>
         </Link>
         <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-[#ded8c8] bg-white p-1 shadow-sm">
           {navItems.map((item) => {
@@ -45,7 +44,7 @@ export function AppNav() {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span>{item.labels[locale]}</span>
+                <span className="hidden sm:inline">{item.labels[locale]}</span>
               </Link>
             );
           })}
