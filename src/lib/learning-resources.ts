@@ -1,95 +1,157 @@
 export type LearningResource = {
   title: string;
+  titleFr?: string;
   description: string;
+  descriptionFr?: string;
   href: string;
   image?: string;
   imageAlt?: string;
+  imageAltFr?: string;
   action: string;
+  actionFr?: string;
   category: string;
+  categoryFr?: string;
   secondaryHref?: string;
   secondaryAction?: string;
+  secondaryActionFr?: string;
 };
 
 export const LEARNING_RESOURCES: LearningResource[] = [
   {
+    title: 'Resulam YouTube playlist',
+    titleFr: 'Playlist YouTube Resulam',
+    description: 'Start with the Resulam playlist for Bamileke language learning videos.',
+    descriptionFr: "Commencez par la playlist Resulam pour les videos d'apprentissage de la langue bamileke.",
+    href: 'https://youtube.com/playlist?list=PLrKMH6RJivhtnIk0gxI7jnkNr14B-IlGy&si=GGP2mkKbxR8wWUKR',
+    action: 'Open playlist',
+    actionFr: 'Ouvrir la playlist',
+    category: 'YouTube',
+    categoryFr: 'YouTube',
+  },
+  {
     title: 'Shared learning files',
+    titleFr: 'Fichiers d apprentissage partages',
     description: 'Open the Google Drive folder for additional Bamileke learning materials and shared documents.',
+    descriptionFr: "Ouvrez le dossier Google Drive pour acceder aux documents partages et aux ressources supplementaires d apprentissage bamileke.",
     href: 'https://drive.google.com/drive/folders/1Lcs1Hj_wyu70XMbnMWdvFi78r02kWRkp',
     action: 'Open folder',
+    actionFr: 'Ouvrir le dossier',
     category: 'Google Drive',
+    categoryFr: 'Google Drive',
   },
   {
     title: 'African Polyglot',
+    titleFr: 'African Polyglot',
     description: 'African language services, translation, localization, interpretation, and research.',
+    descriptionFr: 'Services de langues africaines, traduction, localisation, interpretation et recherche.',
     href: 'https://african-polyglot.com/',
     image: '/resources/african-polyglot-scan.png',
     imageAlt: 'African Polyglot QR scan poster',
+    imageAltFr: 'Affiche QR African Polyglot',
     action: 'Visit website',
+    actionFr: 'Visiter le site',
     category: 'Website',
+    categoryFr: 'Site web',
   },
   {
     title: 'Comparative Study of the Bamileke Dialects',
-    description: "Étude Comparative des Variantes Dialectales de L'unique Langue Bamiléké Part I, Shck Tchamna, May 1, 2016.",
+    titleFr: 'Etude comparative des variantes dialectales bamileke',
+    description: "Etude Comparative des Variantes Dialectales de L'unique Langue Bamileke Part I, Shck Tchamna, May 1, 2016.",
+    descriptionFr: "Etude Comparative des Variantes Dialectales de L'unique Langue Bamileke Part I, Shck Tchamna, 1 mai 2016.",
     href: 'https://www.amazon.com/dp/1533014981',
     image: '/resources/bamileke-book-scan.png',
     imageAlt: 'Bamileke dialect comparative study book and QR code',
+    imageAltFr: 'Livre comparatif des dialectes bamileke et code QR',
     action: 'Get print book',
+    actionFr: 'Livre imprime',
     category: 'Book',
+    categoryFr: 'Livre',
     secondaryHref: 'https://www.amazon.com/dp/B08PG2T13P',
     secondaryAction: 'Ebook',
+    secondaryActionFr: 'Ebook',
   },
   {
     title: 'Dictionnaire Nufi-Franc-Nufi',
+    titleFr: 'Dictionnaire Nufi-Franc-Nufi',
     description: 'Install the Nufi-French dictionary Android app from Google Play.',
+    descriptionFr: "Installez l application Android du dictionnaire nufi-francais depuis Google Play.",
     href: 'https://play.google.com/store/apps/details?id=com.resulam.android.NufiTchamna_nufi_francais_nufi&hl=fr&pli=1',
     image: '/resources/nufi-app-play-store.png',
     imageAlt: 'Dictionnaire Nufi-Franc-Nufi Google Play listing',
+    imageAltFr: 'Page Google Play du Dictionnaire Nufi-Franc-Nufi',
     action: 'Get app',
+    actionFr: 'Obtenir l application',
     category: 'Android app',
+    categoryFr: 'Application Android',
   },
   {
     title: 'Dictionnaire Nufi-Franc-Nufi Pro',
+    titleFr: 'Dictionnaire Nufi-Franc-Nufi Pro',
     description: 'Open the Nufi-French dictionary app listing from the QR resource.',
+    descriptionFr: "Ouvrez la page de l application du dictionnaire nufi-francais depuis la ressource QR.",
     href: 'https://play.google.com/store/apps/details?id=com.resulam.android.NufiTchamna_nufi_francais_nufi&hl=en_US&gl=US&pli=1',
     image: '/resources/nufi-dictionary-pro-qr.png',
     imageAlt: 'Nufi French dictionary app QR code and screenshots',
+    imageAltFr: 'Code QR et captures du dictionnaire nufi-francais',
     action: 'Get app',
+    actionFr: 'Obtenir l application',
     category: 'Android app',
+    categoryFr: 'Application Android',
   },
   {
     title: 'Bamileke (Nufi) Language Phrasebook',
+    titleFr: 'Phrasebook Bamileke (Nufi)',
     description: "Nwa'ni nja'ghoa phrasebook course for learning Bamileke Nufi expressions.",
+    descriptionFr: "Cours Nwa'ni nja'ghoa pour apprendre des expressions bamileke nufi.",
     href: 'https://www.udemy.com/course/bamileke-nufi-language-phrasebook/?referralCode=453B34DB58BB12C23D52',
     image: '/resources/nufi-udemy-course.png',
     imageAlt: 'Udemy Bamileke Nufi language phrasebook course',
+    imageAltFr: 'Cours Udemy phrasebook bamileke nufi',
     action: 'Get course',
+    actionFr: 'Obtenir le cours',
     category: 'Course',
+    categoryFr: 'Cours',
   },
   {
     title: 'Yemba Language Phrasebook',
+    titleFr: 'Phrasebook Yemba',
     description: "Anjwa'ne mekameshunne phrasebook course for learning Yemba expressions.",
+    descriptionFr: "Cours Anjwa'ne mekameshunne pour apprendre des expressions yemba.",
     href: 'https://www.udemy.com/course/yemba-language-phrasebook/?referralCode=84AB32546A069CBA0658',
     image: '/resources/yemba-udemy-course.png',
     imageAlt: 'Udemy Yemba language phrasebook course',
+    imageAltFr: 'Cours Udemy phrasebook yemba',
     action: 'Get course',
+    actionFr: 'Obtenir le cours',
     category: 'Course',
+    categoryFr: 'Cours',
   },
   {
     title: 'YouTube Resulam VIP',
+    titleFr: 'YouTube Resulam VIP',
     description: 'Join the Resulam VIP YouTube channel for language learning videos and updates.',
+    descriptionFr: 'Rejoignez la chaine YouTube Resulam VIP pour les videos et actualites d apprentissage.',
     href: 'https://www.youtube.com/channel/UCoTSeSbcu6X3REreEZd_urA/join',
     image: '/resources/youtube-resulam-vip.png',
     imageAlt: 'YouTube Resulam VIP QR code',
+    imageAltFr: 'Code QR YouTube Resulam VIP',
     action: 'Join channel',
+    actionFr: 'Rejoindre la chaine',
     category: 'YouTube',
+    categoryFr: 'YouTube',
   },
   {
     title: 'YouTube Nufi-Resulam VIP',
+    titleFr: 'YouTube Nufi-Resulam VIP',
     description: 'Join the Nufi-Resulam VIP YouTube channel for Nufi language videos and resources.',
+    descriptionFr: 'Rejoignez la chaine YouTube Nufi-Resulam VIP pour les videos et ressources nufi.',
     href: 'https://www.youtube.com/channel/UCR74EkePffCfjGEqe3m4S1A/join',
     image: '/resources/youtube-nufi-resulam-vip.png',
     imageAlt: 'YouTube Nufi-Resulam VIP QR code',
+    imageAltFr: 'Code QR YouTube Nufi-Resulam VIP',
     action: 'Join channel',
+    actionFr: 'Rejoindre la chaine',
     category: 'YouTube',
+    categoryFr: 'YouTube',
   },
 ];
