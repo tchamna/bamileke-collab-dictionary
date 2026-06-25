@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/adminAuth';
+import { getAdminSession, requireAdmin } from '@/lib/adminAuth';
 import { listAdminWords, upsertAdminWordContribution } from '@/lib/db';
 
 const saveSchema = z.object({
@@ -48,15 +48,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const adminSession = await getAdminSession();
+  if (!adminSession) return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
 
   const parsed = saveSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const contributionId = await upsertAdminWordContribution(parsed.data);
+  const contributionId = await upsertAdminWordContribution({ ...parsed.data, reviewerEmail: adminSession.email });
   if (!contributionId) {
     return NextResponse.json({ error: 'Unable to save contribution.' }, { status: 500 });
   }

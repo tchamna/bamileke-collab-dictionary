@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/adminAuth';
+import { getAdminSession } from '@/lib/adminAuth';
 import { approveAdminContributions, deleteAdminContributions, rejectAdminContributions } from '@/lib/db';
 
 const batchSchema = z.object({
@@ -9,8 +9,8 @@ const batchSchema = z.object({
 });
 
 export async function PATCH(request: NextRequest) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const adminSession = await getAdminSession();
+  if (!adminSession) return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
 
   const parsed = batchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -19,9 +19,9 @@ export async function PATCH(request: NextRequest) {
 
   const updatedCount =
     parsed.data.action === 'approve'
-      ? await approveAdminContributions(parsed.data.ids)
+      ? await approveAdminContributions(parsed.data.ids, adminSession.email)
       : parsed.data.action === 'reject'
-        ? await rejectAdminContributions(parsed.data.ids)
+        ? await rejectAdminContributions(parsed.data.ids, adminSession.email)
         : await deleteAdminContributions(parsed.data.ids);
   return NextResponse.json({ ok: true, updatedCount });
 }

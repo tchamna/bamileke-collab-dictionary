@@ -1,6 +1,6 @@
-import { Award, Crown, Medal, Sparkles, Trophy } from 'lucide-react';
+import { Award, Medal, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import Link from 'next/link';
-import { listContributorLeaderboard, type ContributorLeaderboardRow } from '@/lib/db';
+import { listContributorLeaderboard, listReviewerLeaderboard, type ContributorLeaderboardRow } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,7 +84,7 @@ function PodiumCard({ row, place }: { row: ContributorLeaderboardRow; place: num
           <h2 className="mt-2 text-2xl font-semibold text-[#18221d]">{displayName(row)}</h2>
           <p className="mt-1 text-sm font-medium text-[#667065]">{maskEmail(row.contributor_email)}</p>
           <div className="mt-5 rounded-xl bg-[#fbfaf6] p-4">
-            <p className="text-4xl font-black text-[#2f6b58]">{row.contribution_count * 50}</p>
+            <p className="text-4xl font-black text-[#2f6b58]">{row.points}</p>
             <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#74776d]">points</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 text-sm font-semibold">
@@ -98,9 +98,12 @@ function PodiumCard({ row, place }: { row: ContributorLeaderboardRow; place: num
 }
 
 export default async function LeaderboardPage() {
-  const rows = await listContributorLeaderboard(100);
+  const [rows, reviewerRows] = await Promise.all([
+    listContributorLeaderboard(100),
+    listReviewerLeaderboard(100),
+  ]);
   const topThree = rows.slice(0, 3);
-  const totalPoints = rows.reduce((sum, row) => sum + row.contribution_count * 50, 0);
+  const totalPoints = rows.reduce((sum, row) => sum + row.points, 0);
   const totalContributions = rows.reduce((sum, row) => sum + row.contribution_count, 0);
 
   return (
@@ -117,7 +120,7 @@ export default async function LeaderboardPage() {
                 Classement des contributeurs
               </h1>
               <p className="mt-4 max-w-2xl text-lg font-medium leading-8 text-[#62685d]">
-                Chaque contribution valide compte pour 50 points. Les entrees rejetees ne comptent pas dans le score.
+                Chaque contribution valide compte pour 50 points. Une correction rejetee retire 25 points au contributeur et donne 25 points au relecteur.
               </p>
               <div className="mt-5 inline-flex rounded-lg border border-[#d8d0bd] bg-white p-1 shadow-sm">
                 <Link href="/leaderboard" className="rounded-md bg-[#2f6b58] px-4 py-2 text-sm font-semibold text-white shadow-sm">
@@ -197,8 +200,11 @@ export default async function LeaderboardPage() {
                         <p className="text-sm font-medium text-[#74776d]">{maskEmail(row.contributor_email)}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="text-xl font-black text-[#2f6b58]">{row.contribution_count * 50}</p>
+                        <p className="text-xl font-black text-[#2f6b58]">{row.points}</p>
                         <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#74776d]">points</p>
+                        {row.review_adjustment_points ? (
+                          <p className="mt-1 text-xs font-semibold text-[#a13d2d]">{row.review_adjustment_points} correction</p>
+                        ) : null}
                       </td>
                       <td className="px-5 py-4 text-base font-semibold text-[#30352f]">{row.contribution_count}</td>
                       <td className="px-5 py-4">
@@ -212,6 +218,54 @@ export default async function LeaderboardPage() {
                         <p className="max-w-xs truncate text-sm text-[#74776d]">{row.languages.join(', ')}</p>
                       </td>
                       <td className="px-5 py-4 text-sm font-medium text-[#62685d]">{formatDate(row.latest_contribution_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        {reviewerRows.length ? (
+          <div className="overflow-hidden rounded-2xl border border-[#ddd6c5] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#e7e1d4] bg-[#fbfaf6] px-5 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#74776d]">Relecteurs</p>
+                <h2 className="text-xl font-semibold text-[#18221d]">Points de revue</h2>
+              </div>
+              <ShieldCheck className="h-7 w-7 text-[#2f6b58]" />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left">
+                <thead className="bg-white text-xs font-bold uppercase tracking-[0.14em] text-[#74776d]">
+                  <tr>
+                    <th className="px-5 py-4">Rang</th>
+                    <th className="px-5 py-4">Relecteur</th>
+                    <th className="px-5 py-4">Score</th>
+                    <th className="px-5 py-4">Revues</th>
+                    <th className="px-5 py-4">Decisions</th>
+                    <th className="px-5 py-4">Derniere revue</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ece6d8]">
+                  {reviewerRows.map((row) => (
+                    <tr key={row.reviewer_email} className="hover:bg-[#fbfaf6]">
+                      <td className="px-5 py-4 text-lg font-black text-[#18221d]">#{row.rank}</td>
+                      <td className="px-5 py-4">
+                        <p className="text-base font-semibold text-[#18221d]">{maskEmail(row.reviewer_email)}</p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-xl font-black text-[#2f6b58]">{row.points}</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#74776d]">points</p>
+                      </td>
+                      <td className="px-5 py-4 text-base font-semibold text-[#30352f]">{row.review_count}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-2 text-sm font-semibold">
+                          <span className="rounded-full bg-[#edf1e9] px-3 py-1 text-[#2f6b58]">{row.approved_review_count} approuvees</span>
+                          <span className="rounded-full bg-[#fdecea] px-3 py-1 text-[#a13d2d]">{row.rejected_review_count} corrigees</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm font-medium text-[#62685d]">{formatDate(row.latest_reviewed_at)}</td>
                     </tr>
                   ))}
                 </tbody>
