@@ -68,8 +68,8 @@ const dictionaries = {
     comparison: 'Comparaison',
     comparisonTitle: 'Mots nufi avec traductions communautaires',
     translatedWords: 'Mots traduits',
-    wordsAsRows: 'Mots en lignes',
-    languagesAsRows: 'Langues en lignes',
+    wordsAsRows: 'Comparer par mot',
+    languagesAsRows: 'Comparer par langue',
     baseWords: 'Mots de base',
     comparisonSummary: (wordCount: number, languageCount: number) =>
       `${wordCount} mots comparés dans ${languageCount} langues bamiléké`,
@@ -160,8 +160,8 @@ const dictionaries = {
     translatedWords: 'Translated words',
     comparisonSummary: (wordCount: number, languageCount: number) =>
       `${wordCount} compared words across ${languageCount} Bamileke languages`,
-    wordsAsRows: 'Words as rows',
-    languagesAsRows: 'Languages as rows',
+    wordsAsRows: 'Compare by word',
+    languagesAsRows: 'Compare by language',
     baseWords: 'Base words',
     shown: 'Shown',
     loadingTranslations: 'Loading translations...',
