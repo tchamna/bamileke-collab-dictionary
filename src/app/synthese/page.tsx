@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, Search, Sparkles } from 'lucide-react';
 import { listComparisonWords, type WordComparisonContribution } from '@/lib/db';
-import { getLanguageLabel } from '@/lib/languages';
+import { getLanguageLabel, LANGUAGES } from '@/lib/languages';
 
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 8;
+const SYNTHESIS_LANGUAGE_IDS = new Set<string>(LANGUAGES.filter((language) => language.id !== 'other').map((language) => language.id));
 
 type SynthesisVariant = {
   language: string;
@@ -114,6 +115,7 @@ function groupVariants(nufiForms: string[], contributions: WordComparisonContrib
   }
 
   for (const contribution of contributions) {
+    if (!SYNTHESIS_LANGUAGE_IDS.has(contribution.language)) continue;
     const current = grouped.get(contribution.language) ?? {
       language: contribution.language,
       label: getLanguageLabel(contribution.language),
