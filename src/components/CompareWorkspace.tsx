@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, FileDown, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, FileDown, Search } from 'lucide-react';
 import { customLanguageLabel, getLanguageLabel } from '@/lib/languages';
 import { useUiText } from '@/lib/uiLocale';
 
@@ -386,13 +386,6 @@ export function CompareWorkspace({ languages }: { languages: readonly LanguageOp
               >
                 Onboarding form
                 <ExternalLink className="h-4 w-4" />
-              </a>
-              <a
-                href="/synthese"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#c9cabc] bg-white px-4 text-sm font-semibold text-[#295f4e] shadow-sm transition hover:border-[#295f4e]"
-              >
-                <Sparkles className="h-4 w-4" />
-                Synthese
               </a>
               {isAdmin ? (
                 <button

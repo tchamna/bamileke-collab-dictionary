@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { ArrowLeft, ChevronLeft, ChevronRight, Search, Sparkles } from 'lucide-react';
 import { listComparisonWords, type WordComparisonContribution } from '@/lib/db';
 import { getLanguageLabel, LANGUAGES } from '@/lib/languages';
 
 export const dynamic = 'force-dynamic';
+const SYNTHESIS_ROUTE_ENABLED = false;
 
 const PAGE_SIZE = 8;
 const SYNTHESIS_LANGUAGE_IDS = new Set<string>(LANGUAGES.filter((language) => language.id !== 'other').map((language) => language.id));
@@ -297,7 +299,46 @@ function synthesize(variants: SynthesisVariant[]): SynthesisResult {
 
 type SearchParams = Promise<{ q?: string; page?: string }>;
 
+function PaginationControls({
+  query,
+  page,
+  canGoPrevious,
+  canGoNext,
+}: {
+  query: string;
+  page: number;
+  canGoPrevious: boolean;
+  canGoNext: boolean;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Link
+        aria-disabled={!canGoPrevious}
+        href={canGoPrevious ? `/synthese?q=${encodeURIComponent(query)}&page=${page - 1}` : '#'}
+        className={`inline-flex h-10 items-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold ${
+          canGoPrevious ? 'text-[#344437] hover:border-[#2f6b58]' : 'pointer-events-none text-[#9ca197] opacity-50'
+        }`}
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Precedent
+      </Link>
+      <Link
+        aria-disabled={!canGoNext}
+        href={canGoNext ? `/synthese?q=${encodeURIComponent(query)}&page=${page + 1}` : '#'}
+        className={`inline-flex h-10 items-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold ${
+          canGoNext ? 'text-[#344437] hover:border-[#2f6b58]' : 'pointer-events-none text-[#9ca197] opacity-50'
+        }`}
+      >
+        Suivant
+        <ChevronRight className="h-4 w-4" />
+      </Link>
+    </div>
+  );
+}
+
 export default async function SynthesePage({ searchParams }: { searchParams: SearchParams }) {
+  if (!SYNTHESIS_ROUTE_ENABLED) notFound();
+
   const params = await searchParams;
   const query = params.q?.trim() ?? '';
   const page = Math.max(1, Number(params.page ?? 1) || 1);
@@ -357,28 +398,7 @@ export default async function SynthesePage({ searchParams }: { searchParams: Sea
           <p className="text-sm font-semibold text-[#62685d]">
             {data.total === 0 ? 'Aucune entree trouvee' : `${offset + 1}-${pageEnd} sur ${data.total}`}
           </p>
-          <div className="flex gap-2">
-            <Link
-              aria-disabled={!canGoPrevious}
-              href={canGoPrevious ? `/synthese?q=${encodeURIComponent(query)}&page=${page - 1}` : '#'}
-              className={`inline-flex h-10 items-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold ${
-                canGoPrevious ? 'text-[#344437] hover:border-[#2f6b58]' : 'pointer-events-none text-[#9ca197] opacity-50'
-              }`}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Precedent
-            </Link>
-            <Link
-              aria-disabled={!canGoNext}
-              href={canGoNext ? `/synthese?q=${encodeURIComponent(query)}&page=${page + 1}` : '#'}
-              className={`inline-flex h-10 items-center gap-2 rounded-md border border-[#c9cabc] bg-white px-3 text-sm font-semibold ${
-                canGoNext ? 'text-[#344437] hover:border-[#2f6b58]' : 'pointer-events-none text-[#9ca197] opacity-50'
-              }`}
-            >
-              Suivant
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <PaginationControls query={query} page={page} canGoPrevious={canGoPrevious} canGoNext={canGoNext} />
         </div>
 
         <div className="grid gap-6">
@@ -464,6 +484,13 @@ export default async function SynthesePage({ searchParams }: { searchParams: Sea
               </article>
             );
           })}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 border-t border-[#d8d6c8] pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-[#62685d]">
+            {data.total === 0 ? 'Aucune entree trouvee' : `${offset + 1}-${pageEnd} sur ${data.total}`}
+          </p>
+          <PaginationControls query={query} page={page} canGoPrevious={canGoPrevious} canGoNext={canGoNext} />
         </div>
       </section>
     </main>
