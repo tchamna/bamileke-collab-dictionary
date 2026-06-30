@@ -17,6 +17,7 @@ type SynthesisVariant = {
 type SynthesisResult = {
   proposed: string;
   simplified: string;
+  isComposite: boolean;
   confidence: 'Eleve' | 'Moyen' | 'Faible';
   expertReview: string;
   analysis: string;
@@ -103,6 +104,60 @@ function uniqueForms(forms: string[]) {
   return result;
 }
 
+function tokenizeForm(value: string) {
+  return value
+    .trim()
+    .split(/[\s-]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function buildCompositeCandidate(formsByLanguage: Array<{ form: string; language: string }>) {
+  const tokenized = formsByLanguage
+    .map((item) => ({ ...item, tokens: tokenizeForm(item.form) }))
+    .filter((item) => item.tokens.length > 1);
+
+  if (tokenized.length < 2) return null;
+
+  const tokenCount = mostCommon(tokenized.map((item) => item.tokens.length))?.[0];
+  if (!tokenCount || tokenCount < 2) return null;
+
+  const aligned = tokenized.filter((item) => item.tokens.length === tokenCount);
+  if (aligned.length < 2) return null;
+
+  const selected = Array.from({ length: tokenCount }, (_, index) => {
+    const tokens = aligned.map((item) => ({
+      token: item.tokens[index],
+      language: item.language,
+      sourceForm: item.form,
+    }));
+    const uniqueTokens = uniqueForms(tokens.map((item) => item.token));
+    const scoredTokens = uniqueTokens
+      .map((candidate) => {
+        const normalizedCandidate = normalizeForm(candidate);
+        const exactSupport = tokens.filter((item) => normalizeForm(item.token) === normalizedCandidate).length;
+        const averageSimilarity = tokens.reduce((sum, item) => sum + similarity(candidate, item.token), 0) / tokens.length;
+        return {
+          token: candidate,
+          score: exactSupport * 2 + averageSimilarity,
+          source: tokens.find((item) => normalizeForm(item.token) === normalizedCandidate) ?? tokens[0],
+        };
+      })
+      .sort((left, right) => right.score - left.score || simplifiedForm(left.token).length - simplifiedForm(right.token).length);
+    return scoredTokens[0];
+  });
+
+  const form = selected.map((item) => item.token).join(' ');
+  const sourceForms = new Set(selected.map((item) => item.source.sourceForm));
+  const sourceLanguages = [...new Set(selected.map((item) => item.source.language))];
+
+  return {
+    form,
+    isComposite: sourceForms.size > 1,
+    sourceLanguages,
+  };
+}
+
 function groupVariants(nufiForms: string[], contributions: WordComparisonContribution[]) {
   const grouped = new Map<string, SynthesisVariant>();
 
@@ -143,6 +198,7 @@ function synthesize(variants: SynthesisVariant[]): SynthesisResult {
     return {
       proposed: '-',
       simplified: '-',
+      isComposite: false,
       confidence: 'Faible',
       expertReview: 'Oui: aucune variante exploitable.',
       analysis: 'Aucune forme exploitable dans les variantes disponibles.',
@@ -151,7 +207,10 @@ function synthesize(variants: SynthesisVariant[]): SynthesisResult {
     };
   }
 
-  const scored = unique
+  const composite = buildCompositeCandidate(formsByLanguage);
+  const candidateForms = uniqueForms(composite ? [...unique, composite.form] : unique);
+
+  const scored = candidateForms
     .map((candidate) => {
       const normalizedCandidate = normalizeForm(candidate);
       const exactSupport = formsByLanguage.filter((item) => item.normalized === normalizedCandidate).length;
@@ -160,18 +219,28 @@ function synthesize(variants: SynthesisVariant[]): SynthesisResult {
       const languageSupport = new Set(
         formsByLanguage.filter((item) => similarity(candidate, item.form) >= 0.72).map((item) => item.language)
       ).size;
+      const isComposite = Boolean(composite && normalizeForm(composite.form) === normalizedCandidate && composite.isComposite);
       return {
         form: candidate,
-        score: exactSupport * 2 + languageSupport * 1.5 + averageSimilarity,
+        score: exactSupport * 2 + languageSupport * 1.5 + averageSimilarity + (isComposite ? 1.25 : 0),
         exactSupport,
         languageSupport,
         averageSimilarity,
+        isComposite,
       };
     })
     .sort((left, right) => right.score - left.score || simplifiedForm(left.form).length - simplifiedForm(right.form).length);
 
-  const best = scored[0];
-  const second = scored[1];
+  const topObserved = scored[0];
+  const compositeScored = scored.find((item) => item.isComposite);
+  const best =
+    compositeScored &&
+    compositeScored.score >= topObserved.score - 1.5 &&
+    compositeScored.languageSupport >= topObserved.languageSupport - 1
+      ? compositeScored
+      : topObserved;
+  const rankedOptions = [best, ...scored.filter((item) => item.form !== best.form)];
+  const second = rankedOptions[1];
   const initials = formsByLanguage.map((item) => item.normalized.charAt(0)).filter(Boolean);
   const commonInitial = mostCommon(initials);
   const shapes = formsByLanguage.map((item) => item.shape).filter(Boolean);
@@ -186,33 +255,42 @@ function synthesize(variants: SynthesisVariant[]): SynthesisResult {
         ? 'Moyen'
         : 'Faible';
 
-  const options = scored.slice(0, 3).map((item) => {
+  const options = rankedOptions.slice(0, 3).map((item) => {
     const limit =
       second && item.form === best.form && Math.abs(best.score - second.score) < 1
         ? 'option forte, mais proche de la seconde option'
         : item.form === best.form
           ? 'meilleur centre phonologique observe'
           : 'option secondaire';
-    return `${item.form} (${item.languageSupport} langues proches, ${limit})`;
+    const source = item.isComposite ? 'forme composite' : limit;
+    return `${item.form} (${item.languageSupport} langues proches, ${source})`;
   });
 
   return {
     proposed: best.form,
     simplified: simplifiedForm(best.form),
+    isComposite: best.isComposite,
     confidence,
     expertReview:
       confidence === 'Eleve'
         ? 'Non prioritaire, mais validation communautaire recommandee.'
         : 'Oui: a soumettre a des linguistes et personnes ressources.',
     analysis: [
-      `La forme proposee est le centre le plus proche des variantes disponibles selon la proximite phonologique.`,
+      best.isComposite
+        ? `La forme proposee est composite: elle assemble les segments les plus forts observes dans plusieurs variantes proches.`
+        : `La forme proposee est le centre le plus proche des variantes disponibles selon la proximite phonologique.`,
       commonInitial ? `L'attaque initiale la plus frequente est "${commonInitial[0]}".` : '',
       commonShape ? `La structure syllabique dominante est ${commonShape[0]}.` : '',
       familyLanguages.length ? `Les formes les plus proches couvrent: ${familyLanguages.join(', ')}.` : '',
+      best.isComposite && composite?.sourceLanguages.length
+        ? `Les segments retenus proviennent notamment de: ${composite.sourceLanguages.join(', ')}.`
+        : '',
     ]
       .filter(Boolean)
       .join(' '),
-    justification: `Cette forme garde les segments les plus reconnaissables tout en restant simple a ecrire. Elle n'est pas une invention libre: elle est choisie parmi les formes observees et sert de compromis entre frequence, proximite et facilite d'adoption.`,
+    justification: best.isComposite
+      ? `Cette forme garde les segments les plus reconnaissables tout en restant simple a ecrire. Elle n'est pas une invention libre: chaque segment vient des variantes observees, puis l'ensemble est compose comme compromis entre frequence, proximite et facilite d'adoption.`
+      : `Cette forme garde les segments les plus reconnaissables tout en restant simple a ecrire. Elle n'est pas une invention libre: elle est choisie parmi les formes observees et sert de compromis entre frequence, proximite et facilite d'adoption.`,
     options,
   };
 }
@@ -353,6 +431,11 @@ export default async function SynthesePage({ searchParams }: { searchParams: Sea
                     </div>
                     <p className="mt-4 text-sm font-bold uppercase tracking-[0.14em] text-[#2f6b58]">Forme unifiée proposée</p>
                     <p className="mt-2 text-4xl font-black leading-tight text-[#147a4f]">{synthesis.proposed}</p>
+                    {synthesis.isComposite ? (
+                      <p className="mt-2 inline-flex rounded-full border border-[#b8d5c7] bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-[#147a4f]">
+                        Forme composite
+                      </p>
+                    ) : null}
                     <p className="mt-5 text-sm font-bold uppercase tracking-[0.14em] text-[#2f6b58]">Forme simplifiée</p>
                     <p className="mt-2 text-2xl font-semibold text-[#147a4f]">{synthesis.simplified}</p>
                     <div className="mt-5 grid gap-2 text-sm font-semibold text-[#147a4f]">
